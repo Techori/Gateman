@@ -1,0 +1,10 @@
+node_modules
+./dist
+.env
+build
+coverage
+.git
+package.json
+package-lock.json
+tsconfig.json
+logs
