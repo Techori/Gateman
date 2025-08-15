@@ -13,8 +13,7 @@ function globalErrorHandler(
     res.status(statusCode).json({
         success: false,
         message: err.message,
-
-        errorStack: config.env === "dev" ? err.stack : "",
+        errorStack: config.env === "developmet" ? err.stack : "",
     });
 }
 
