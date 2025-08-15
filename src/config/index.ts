@@ -29,6 +29,16 @@ const _config = {
     JWT_AUDIENCE: getOptionalEnv("JWT_AUDIENCE", "your-app-users"),
 
     frontendDomain: getOptionalEnv("FRONTEND_DOMAIN", "http://localhost:3000"),
+    adminDashboardDomain: getOptionalEnv(
+        "ADMIN_DASHBOARD_DOMAIN",
+        "http://localhost:3000"
+    ),
+    userDashboardDomain: getOptionalEnv(
+        "USER_DASHBOARD_DOMAIN",
+        "http://localhost:3000"
+    ),
+    RESEND_API_KEY: getOptionalEnv("RESEND_API_KEY", "RESEND_API_KEY"),
+    EMAIL_FROM: getOptionalEnv("EMAIL_FROM", "verified_email@example.com"),
 } as const;
 
 export const config = Object.freeze(_config);

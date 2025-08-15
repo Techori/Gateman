@@ -35,12 +35,15 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "helmet": "^8.1.0",
     "hpp": "^0.2.3",
     "http-errors": "^2.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1",
     "nodemon": "^3.1.10",
-    "winston": "^3.17.0"
+    "resend": "^6.0.1",
+    "winston": "^3.17.0",
+    "zod": "^4.0.17"
   },
   "lint-staged": {
     "*.ts": [
