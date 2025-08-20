@@ -39,6 +39,9 @@ const _config = {
     ),
     RESEND_API_KEY: getOptionalEnv("RESEND_API_KEY", "RESEND_API_KEY"),
     EMAIL_FROM: getOptionalEnv("EMAIL_FROM", "verified_email@example.com"),
+    cloudinaryCloud: getOptionalEnv("CLOUDINARY_CLOUD", ""),
+    cloudinaryApiKey: getOptionalEnv("CLOUDINARY_API_KEY", ""),
+    cloudinarySecret: getOptionalEnv("CLOUDINARY_API_SECRET", ""),
 } as const;
 
 export const config = Object.freeze(_config);

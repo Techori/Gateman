@@ -9,6 +9,7 @@ import hpp from "hpp";
 import helmet from "helmet";
 import { config } from "./config/index.js";
 import userRouter from "./user/userRoute.js";
+import propertyRoute from "./property/propertyRoute.js";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.get("/", (req, res, next) => {
 });
 
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/property", propertyRoute);
 
 // Global error handler
 app.use(globalErrorHandler);
