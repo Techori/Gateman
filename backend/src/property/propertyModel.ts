@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+
 const propertySchema = new mongoose.Schema(
     {
         ownerId: {
@@ -18,9 +19,9 @@ const propertySchema = new mongoose.Schema(
             type: [String],
             default: [],
         },
-        location: {
+        landmark: {
             type: String,
-            required: true,
+
         },
         address: {
             type: String,
