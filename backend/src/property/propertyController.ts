@@ -72,28 +72,36 @@ const uploadImageToCloudinary = async (
 
 const createProperty = async (req: Request, res: Response, next: NextFunction) => {
     const filesToDelete: string[] = []; // Track files to delete
-    
+
     try {
         // Parse and validate request body
         const validatedData = createPropertySchema.parse(req.body);
         const {
-            address,
-            amenities,
-            city,
-            description,
-            location,
             name,
-            ownerId,
-            pincode,
-            propertyStatus,
+            description,
+            landmark,
+            address,
+            city,
             state,
-            totalSpaces,
-            verificationStatus,
-            adminNote,
+            pincode,
             googleMapLink,
-            lastInspectionDate,
             totalArea,
-            type
+            type,
+            floorSize,
+            totalFloor,
+            cost,
+            amenities,
+            isSaturdayOpened,
+            isSundayOpened,
+            seatingCapacity,
+            totalCostPerSeat,
+            isPriceNegotiable,
+            unavailableDates,
+            furnishingLevel,
+            propertyStatus,
+            verificationStatus,
+            lastInspectionDate,
+            adminNote
         } = validatedData;
 
         const _req = req as AuthRequest;
@@ -116,6 +124,11 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         if (!user.isEmailVerify) {
             return next(createHttpError(401, "User email is not verified"));
         }
+        
+        // only user role = propertyOwener is allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
 
         // Check if property images are provided
         if (!files || !files.propertyImage || files.propertyImage.length === 0) {
@@ -123,7 +136,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         }
 
         const propertyImages = files.propertyImage;
-        
+
         // Validate number of images (max 5)
         if (propertyImages.length > 5) {
             return next(createHttpError(400, "Maximum 5 images are allowed"));
@@ -156,12 +169,12 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         }
 
         // Upload images to Cloudinary
-        const uploadPromises = imagePaths.map((filePath, index) => 
+        const uploadPromises = imagePaths.map((filePath, index) =>
             uploadImageToCloudinary(filePath, propertyImages[index]?.filename || `property_image_${Date.now()}_${index}`)
         );
 
         let uploadResults: { url: string; public_id: string }[] = [];
-        
+
         try {
             console.log("Uploading images to Cloudinary...");
             uploadResults = await Promise.all(uploadPromises);
@@ -173,11 +186,11 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
 
         // Create property in database
         const newProperty = new Property({
-            ownerId: _id, // Use authenticated user's ID instead of ownerId from body
+            ownerId: _id, // Use authenticated user's ID
             name,
             description,
             propertyImages: uploadResults.map(result => result.url), // Store Cloudinary URLs
-            landmark: location, // Map location to landmark
+            landmark,
             address,
             city,
             state,
@@ -185,11 +198,20 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
             googleMapLink,
             totalArea: totalArea ? Number(totalArea) : undefined,
             type,
-            totalSpaces,
+            floorSize: Number(floorSize),
+            totalFloor: Number(totalFloor),
+            cost: Number(cost),
             amenities,
+            isSaturdayOpened: Boolean(isSaturdayOpened),
+            isSundayOpened: Boolean(isSundayOpened),
+            seatingCapacity: Number(seatingCapacity),
+            totalCostPerSeat: Number(totalCostPerSeat),
+            isPriceNegotiable: Boolean(isPriceNegotiable),
+            unavailableDates: unavailableDates || [],
+            furnishingLevel,
             propertyStatus,
             verificationStatus,
-            lastInspectionDate,
+            lastInspectionDate: lastInspectionDate ? new Date(lastInspectionDate) : undefined,
             adminNote
         });
 
@@ -276,7 +298,6 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
         if (!user.isSessionValid(sessionId)) {
             return next(createHttpError(401, "Invalid or expired session"));
         }
-        
 
         // Get pagination parameters
         const page = parseInt(req.query.page as string) || 1;
@@ -285,7 +306,7 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
 
         // Get filter parameters
         const { status, verificationStatus, type } = req.query;
-        
+
         const filter: any = { ownerId: _id };
         if (status) filter.propertyStatus = status;
         if (verificationStatus) filter.verificationStatus = verificationStatus;
@@ -325,8 +346,167 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
     }
 };
 
-export { 
-    createProperty, 
-    getPropertyById, 
-    getUserProperties 
+// Get all properties for admin role (admin can see all properties)
+const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId } = _req;
+
+        // Validate user and session
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Check if user is admin
+        if (user.role !== "admin") {
+            return next(createHttpError(403, "Access denied. Admin role required"));
+        }
+
+        // Get pagination parameters
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // Get filter parameters
+        const { status, verificationStatus, type, city, state } = req.query;
+
+        const filter: any = {};
+        if (status) filter.propertyStatus = status;
+        if (verificationStatus) filter.verificationStatus = verificationStatus;
+        if (type) filter.type = type;
+        if (city) filter.city = new RegExp(city as string, 'i');
+        if (state) filter.state = new RegExp(state as string, 'i');
+
+        // Get properties with pagination and populate owner details
+        const properties = await Property.find(filter)
+            .populate('ownerId', 'name email phoneNumber role')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
+
+        const totalProperties = await Property.countDocuments(filter);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        // Update session activity
+        user.updateSessionActivity(sessionId);
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                properties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    status: status || null,
+                    verificationStatus: verificationStatus || null,
+                    type: type || null,
+                    city: city || null,
+                    state: state || null
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Get admin properties error:", error);
+        next(createHttpError(500, "Internal server error while fetching properties"));
+    }
+};
+
+// Get all active and verified properties (public endpoint)
+const getAllPropertyForActiveAndVerified = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // Get pagination parameters
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // Get filter parameters for public search
+        const { type, city, state, minCost, maxCost, amenities, seatingCapacity } = req.query;
+
+        const filter: any = {
+            propertyStatus: "active",
+            verificationStatus: "verified"
+        };
+
+        if (type) filter.type = type;
+        if (city) filter.city = new RegExp(city as string, 'i');
+        if (state) filter.state = new RegExp(state as string, 'i');
+        
+        // Price range filter
+        if (minCost || maxCost) {
+            filter.cost = {};
+            if (minCost) filter.cost.$gte = Number(minCost);
+            if (maxCost) filter.cost.$lte = Number(maxCost);
+        }
+
+        // Seating capacity filter
+        if (seatingCapacity) {
+            filter.seatingCapacity = { $gte: Number(seatingCapacity) };
+        }
+
+        // Amenities filter - check if all specified amenities exist
+        if (amenities) {
+            const amenitiesArray = Array.isArray(amenities) ? amenities : [amenities];
+            filter.amenities = { $all: amenitiesArray };
+        }
+
+        // Get properties with pagination and populate owner basic details
+        const properties = await Property.find(filter)
+            .populate('ownerId', 'name email phoneNumber')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .select('-adminNote -lastInspectionDate -unavailableDates') // Hide sensitive admin fields
+            .exec();
+
+        const totalProperties = await Property.countDocuments(filter);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                properties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    type: type || null,
+                    city: city || null,
+                    state: state || null,
+                    minCost: minCost || null,
+                    maxCost: maxCost || null,
+                    amenities: amenities || null,
+                    seatingCapacity: seatingCapacity || null
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Get public properties error:", error);
+        next(createHttpError(500, "Internal server error while fetching properties"));
+    }
+};
+
+export {
+    createProperty,
+    getPropertyById,
+    getUserProperties,
+    getAllPropertiesForAdminRole,
+    getAllPropertyForActiveAndVerified
 };

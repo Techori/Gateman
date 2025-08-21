@@ -14,6 +14,7 @@ const propertySchema = new mongoose.Schema(
         },
         description: {
             type: String,
+
         },
         propertyImages: {
             type: [String],
@@ -45,17 +46,58 @@ const propertySchema = new mongoose.Schema(
         totalArea: {
             type: Number,
         },
+        // DayPass, Meeting Room ,Coworking Space , Managed Office , Virtual office , office/commercial,community halls
         type: {
             type: String,
+            enum: ["DayPass", "Meeting Room", "Coworking Space", "Managed Office", "Virtual office", "Office/Commercial", "Community Hall"],
         },
-        totalSpaces: {
+        floorSize: {
             type: Number,
             required: true,
         },
-        // Spaces for gatherings like community halls, lounges, and meeting rooms
+        totalFloor: {
+            type: Number,
+            required: true,
+        },
+        cost: {
+            type: Number,
+            required: true
+        },
+
+        // 2 wheeler parking, 4 wheeler parking , Fire Extinguisher, Security Personnel, First Aid Kit, private cabins pantry reception area
+
         amenities: {
             type: [String],
             required: true,
+        },
+
+        isSaturdayOpened: {
+            type: Boolean,
+            required: true
+        },
+        isSundayOpened: {
+            type: Boolean,
+            required: true
+        },
+        seatingCapacity: {
+            type: Number,
+            required: true
+        },
+        totalCostPerSeat: {
+            type: Number,
+            required: true
+        },
+        isPriceNegotiable: {
+            type: Boolean,
+            required: true
+        },
+        // "unavailableDates": ["2025-08-21", "2025-08-22", "2025-08-25"]
+        unavailableDates: {
+            type: [String], // store as array of ISO strings
+            default: [],
+        },
+        furnishingLevel: {
+            type: String,
         },
         propertyStatus: {
             type: String,
