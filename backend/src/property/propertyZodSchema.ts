@@ -48,7 +48,9 @@ const createPropertySchema = z.object({
 }, {
     message: "Invalid Google Maps link format",
     path: ["googleMapLink"]
-}).refine(data => {
+})
+/*
+.refine(data => {
     // Validate that cost per seat makes sense compared to total cost
     if (data.totalCostPerSeat && data.cost && data.seatingCapacity) {
         const expectedTotalCost = data.totalCostPerSeat * data.seatingCapacity;
@@ -61,6 +63,7 @@ const createPropertySchema = z.object({
     message: "Cost per seat doesn't match with total cost and seating capacity",
     path: ["totalCostPerSeat"]
 });
+*/
 
 // Schema for updating property (makes most fields optional)
 const updatePropertySchema = createPropertySchema.partial().extend({

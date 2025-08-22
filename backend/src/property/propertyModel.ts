@@ -102,7 +102,7 @@ const propertySchema = new mongoose.Schema(
         propertyStatus: {
             type: String,
             enum: ["active", "inactive", "under_maintenance"],
-            default: "active",
+            default: "inactive",
         },
         verificationStatus: {
             type: String,

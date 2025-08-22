@@ -74,8 +74,33 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
     const filesToDelete: string[] = []; // Track files to delete
 
     try {
+         // Pre-process the request body to handle FormData JSON strings
+        const processedBody = { ...req.body };
+        
+        // Handle amenities - parse JSON string back to array
+        if (req.body.amenities && typeof req.body.amenities === 'string') {
+            try {
+                processedBody.amenities = JSON.parse(req.body.amenities);
+            } catch (error) {
+                console.error('Error parsing amenities JSON:', error);
+                processedBody.amenities = []; // Default to empty array if parsing fails
+            }
+        }
+
+        // Handle unavailableDates - parse JSON string back to array
+        if (req.body.unavailableDates && typeof req.body.unavailableDates === 'string') {
+            try {
+                processedBody.unavailableDates = JSON.parse(req.body.unavailableDates);
+            } catch (error) {
+                console.error('Error parsing unavailableDates JSON:', error);
+                processedBody.unavailableDates = []; // Default to empty array if parsing fails
+            }
+        }
+
+        console.log('Processed body:', processedBody); // Debug log
+
         // Parse and validate request body
-        const validatedData = createPropertySchema.parse(req.body);
+        const validatedData = createPropertySchema.parse(processedBody);
         const {
             name,
             description,
@@ -134,6 +159,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         if (!files || !files.propertyImage || files.propertyImage.length === 0) {
             return next(createHttpError(400, "At least one property image is required"));
         }
+        
 
         const propertyImages = files.propertyImage;
 
