@@ -4,14 +4,14 @@ import LoginPage from "./components/pages/LoginPage";
 import RegisterPage from "./components/pages/RegisterPage";
 import AuthLayout from "./layouts/AuthLayout";
 import HomeLayout from "./layouts/HomeLayout";
-// import PropertyOwenerLayout from "./layouts/PropertyOwnerLayout";
-// import HistoryPage from "./components/dashboard/propertyOwener/helper_comp/History";
+
 import PropertyOwnerLayout from "./layouts/PropertyOwnerLayout";
 import PropertyOwnerDashboard from "./components/dashboard/propertyOwener/PropertyOwnerDashboard";
 import PropertiesPage from "./components/dashboard/propertyOwener/PropertiesPage";
 import CreateProperty from "./components/dashboard/propertyOwener/CreateProperty";
 import UserProfilePage from "./components/dashboard/propertyOwener/UserProfilePage";
-// import PropertyOwnerDashboard from "./components/dashboard/propertyOwener/PropertyOwnerDashboard";
+import CreateSaleEmployee from "./components/dashboard/propertyOwener/CreateSaleEmployee";
+
 
 const router = createBrowserRouter([
   {
@@ -47,7 +47,7 @@ const router = createBrowserRouter([
         element: <PropertyOwnerDashboard />
       },
       {
-        path: "properties", // Added properties page
+        path: "properties",
         element: <PropertiesPage />
       },
       {
@@ -58,6 +58,10 @@ const router = createBrowserRouter([
         path: "userProfile",
         element: <UserProfilePage />
       },
+      {
+        path: "createSaleEmployee",
+        element: <CreateSaleEmployee />
+      }
     ]
   }
 ]);

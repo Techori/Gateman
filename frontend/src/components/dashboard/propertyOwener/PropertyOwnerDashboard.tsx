@@ -1,85 +1,164 @@
+import React from 'react'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Building2, Users, DollarSign, TrendingUp } from 'lucide-react'
 
-import { Building, LayoutDashboard, Plus } from 'lucide-react';
+// Mock data - replace with real data from your API
+const dashboardStats = {
+  totalProperties: 12,
+  totalEmployees: 5,
+  monthlyRevenue: 45000,
+  occupancyRate: 85,
+}
 
-const PropertyOwnerDashboard = () => {
+const PropertyOwnerDashboard: React.FC = () => {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <header className="flex h-16 shrink-0 items-center gap-2">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <h1 className="text-lg font-semibold">Dashboard</h1>
+        </div>
+      </header>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Building className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Tenants</p>
-              <p className="text-2xl font-bold text-gray-900">8</p>
-            </div>
-          </div>
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        {/* Welcome Section */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold tracking-tight">Welcome back!</h2>
+          <p className="text-muted-foreground">
+            Here's what's happening with your properties today.
+          </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <LayoutDashboard className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Vacant Units</p>
-              <p className="text-2xl font-bold text-gray-900">4</p>
-            </div>
-          </div>
-        </div>
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.totalProperties}</div>
+              <p className="text-xs text-muted-foreground">
+                +2 from last month
+              </p>
+            </CardContent>
+          </Card>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Plus className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">$15,240</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Sales Employees</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.totalEmployees}</div>
+              <p className="text-xs text-muted-foreground">
+                +1 from last month
+              </p>
+            </CardContent>
+          </Card>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Activity</h2>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-start space-x-4">
-              <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">New tenant moved into Apartment 3B</p>
-                <p className="text-xs text-gray-500">2 hours ago</p>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${dashboardStats.monthlyRevenue.toLocaleString()}
               </div>
-            </div>
-            <div className="flex items-start space-x-4">
-              <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">Rent payment received from Unit 5A</p>
-                <p className="text-xs text-gray-500">1 day ago</p>
+              <p className="text-xs text-muted-foreground">
+                +12% from last month
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.occupancyRate}%</div>
+              <p className="text-xs text-muted-foreground">
+                +5% from last month
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity Section */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Recent Properties</CardTitle>
+              <CardDescription>
+                Your recently added properties
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <div className="space-y-4">
+                {/* Mock recent properties */}
+                <div className="flex items-center">
+                  <div className="ml-4 space-y-1">
+                    <p className="text-sm font-medium leading-none">Sunset Villa</p>
+                    <p className="text-sm text-muted-foreground">
+                      Added 2 days ago • $2,500/month
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <div className="ml-4 space-y-1">
+                    <p className="text-sm font-medium leading-none">Downtown Apartment</p>
+                    <p className="text-sm text-muted-foreground">
+                      Added 5 days ago • $1,800/month
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <div className="ml-4 space-y-1">
+                    <p className="text-sm font-medium leading-none">Garden House</p>
+                    <p className="text-sm text-muted-foreground">
+                      Added 1 week ago • $3,200/month
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start space-x-4">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-900">Maintenance request submitted for Unit 2C</p>
-                <p className="text-xs text-gray-500">3 days ago</p>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Common tasks you might want to perform
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
+                  Add new property
+                </button>
+                <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
+                  Create sales employee
+                </button>
+                <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
+                  View all properties
+                </button>
+                <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
+                  Update profile
+                </button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default PropertyOwnerDashboard;
+export default PropertyOwnerDashboard

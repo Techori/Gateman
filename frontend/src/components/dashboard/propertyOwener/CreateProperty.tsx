@@ -1,174 +1,792 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useMutation } from '@tanstack/react-query';
+// You'll need to import axios from your api.ts file
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@radix-ui/react-separator";
+import { Upload, X, Plus, MapPin, Home, DollarSign, Calendar, Users, Settings, Image } from 'lucide-react';
+import { createProperty } from '@/http/api';
+import type { AxiosError } from 'axios';
+
+// Types
+interface PropertyFormData {
+  name: string;
+  description?: string;
+  landmark?: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: number;
+  googleMapLink?: string;
+  totalArea?: number;
+  type?: string;
+  floorSize: number;
+  totalFloor: number;
+  cost: number;
+  amenities: string[];
+  isSaturdayOpened: boolean;
+  isSundayOpened: boolean;
+  seatingCapacity: number;
+  totalCostPerSeat: number;
+  isPriceNegotiable: boolean;
+  unavailableDates?: string[];
+  furnishingLevel?: string;
+ 
+}
+
+interface ErrorResponse{
+  message:string
+}
+
 
 const CreateProperty = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    type: '',
-    bedrooms: '',
-    bathrooms: '',
-    rent: '',
-    description: ''
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [newAmenity, setNewAmenity] = useState('');
+  const [newDate, setNewDate] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    
+    watch,
+    setValue,
+    formState: { errors },
+    reset,
+  } = useForm<PropertyFormData>({
+    defaultValues: {
+      isSaturdayOpened: true,
+      isSundayOpened: false,
+      isPriceNegotiable: false,
+      amenities: [],
+      unavailableDates: [],
+    },
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  const mutation = useMutation({
+    mutationFn: createProperty, // Replace with actual import: createProperty
+    onSuccess: (data) => {
+      console.log("api response data",data)
+      alert('Property created successfully!');
+      reset();
+      setSelectedImages([]);
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      console.log('Error creating property:', error);
+      alert('Failed to create property. Please try again.');
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Property data:', formData);
-    alert('Property created successfully!');
-    // Reset form
-    setFormData({
-      name: '',
-      address: '',
-      type: '',
-      bedrooms: '',
-      bathrooms: '',
-      rent: '',
-      description: ''
+  const propertyTypes = [
+    'DayPass',
+    'Meeting Room',
+    'Coworking Space',
+    'Managed Office',
+    'Virtual office',
+    'Office/Commercial',
+    'Community Hall',
+  ];
+
+  const commonAmenities = [
+    '2 wheeler parking',
+    '4 wheeler parking',
+    'Fire Extinguisher',
+    'Security Personnel',
+    'First Aid Kit',
+    'Private cabins',
+    'Pantry',
+    'Reception area',
+    'Wi-Fi',
+    'Air Conditioning',
+    'Power Backup',
+    'CCTV',
+  ];
+
+  const watchedAmenities = watch('amenities') || [];
+  const watchedDates = watch('unavailableDates') || [];
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    if (selectedImages.length + files.length > 5) {
+      alert('Maximum 5 images allowed');
+      return;
+    }
+
+    const validFiles = files.filter(file => {
+      if (file.size > 4 * 1024 * 1024) {
+        alert(`${file.name} is too large. Maximum size is 4MB.`);
+        return false;
+      }
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file.`);
+        return false;
+      }
+      return true;
     });
+
+    setSelectedImages(prev => [...prev, ...validFiles]);
   };
 
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addAmenity = (amenity: string) => {
+    const currentAmenities = watchedAmenities;
+    if (!currentAmenities.includes(amenity)) {
+      setValue('amenities', [...currentAmenities, amenity]);
+    }
+  };
+
+  const removeAmenity = (amenity: string) => {
+    const currentAmenities = watchedAmenities;
+    setValue('amenities', currentAmenities.filter(a => a !== amenity));
+  };
+
+  const addCustomAmenity = () => {
+    if (newAmenity.trim() && !watchedAmenities.includes(newAmenity.trim())) {
+      setValue('amenities', [...watchedAmenities, newAmenity.trim()]);
+      setNewAmenity('');
+    }
+  };
+
+  const addUnavailableDate = () => {
+    if (newDate && !watchedDates.includes(newDate)) {
+      setValue('unavailableDates', [...watchedDates, newDate]);
+      setNewDate('');
+    }
+  };
+
+  const removeUnavailableDate = (date: string) => {
+    setValue('unavailableDates', watchedDates.filter(d => d !== date));
+  };
+
+  // const onSubmit = (data: PropertyFormData) => {
+  //   console.log("form data",data);
+    
+  //   if (selectedImages.length === 0) {
+  //     alert('Please upload at least one property image');
+  //     return;
+  //   }
+
+  //   const formData = new FormData();
+    
+  //   // Append all form fields
+  //   Object.entries(data).forEach(([key, value]) => {
+  //     if (key === 'amenities' || key === 'unavailableDates') {
+  //       if (Array.isArray(value)) {
+  //         value.forEach(item => formData.append(key, item));
+  //       }
+  //     } else if (value !== undefined && value !== null && value !== '') {
+  //       formData.append(key, value.toString());
+  //     }
+  //   });
+
+  //   // Append images
+  //   selectedImages.forEach(file => {
+  //     formData.append('propertyImage', file);
+  //   });
+
+  //   mutation.mutate(formData);
+  // };
+
+//   const onSubmit = (data: PropertyFormData) => {
+//   console.log("form data", data);
+  
+//   if (selectedImages.length === 0) {
+//     alert('Please upload at least one property image');
+//     return;
+//   }
+
+//   const formData = new FormData();
+  
+//   // Append all form fields
+//   Object.entries(data).forEach(([key, value]) => {
+//     if (key === 'amenities' || key === 'unavailableDates') {
+//       // Send arrays as JSON strings
+//       if (Array.isArray(value)) {
+//         formData.append(key, JSON.stringify(value));
+//       }
+//     } else if (value !== undefined && value !== null && value !== '') {
+//       formData.append(key, value.toString());
+//     }
+//   });
+
+//   // Append images
+//   selectedImages.forEach(file => {
+//     formData.append('propertyImage', file);
+//   });
+
+//   mutation.mutate(formData);
+// };
+
+const onSubmit = (data: PropertyFormData) => {
+  console.log("form data", data);
+  
+  if (selectedImages.length === 0) {
+    alert('Please upload at least one property image');
+    return;
+  }
+
+  const formData = new FormData();
+  
+  // Append all form fields (excluding propertyImages from form data)
+  Object.entries(data).forEach(([key, value]) => {
+    // Skip the propertyImages field as we handle it separately
+    if (key === 'propertyImages') return;
+    
+    if (key === 'amenities' || key === 'unavailableDates') {
+      // Send arrays as JSON strings
+      if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
+      }
+    } else if (value !== undefined && value !== null && value !== '') {
+      formData.append(key, value.toString());
+    }
+  });
+
+  // CRITICAL FIX: Append images with the correct field name that matches multer config
+  selectedImages.forEach((file, index) => {
+    formData.append('propertyImage', file); // This must match multer field name
+    console.log(`Appending image ${index + 1}:`, file.name, file.size);
+  });
+
+  // Debug: Log FormData contents
+  console.log('FormData contents:');
+  for (const [key, value] of formData.entries()) {
+    console.log(key, value);
+  }
+
+  mutation.mutate(formData);
+};
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-900">Create New Property</h1>
-          <p className="mt-1 text-sm text-gray-600">Add a new property to your portfolio</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="flex h-16 shrink-0 items-center gap-2 bg-white border-b px-6">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger className="-ml-8" />
+          <Separator orientation="vertical" className="mr-1 h-4" />
+          <h1 className="text-lg font-semibold">Create New Property</h1>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Property Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Sunset Apartments"
-                required
-              />
+      </header>
+
+      <div className="max-w-4xl mx-auto p-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          {/* Basic Information */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Home className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Property Type
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                <option value="">Select Type</option>
-                <option value="apartment">Apartment</option>
-                <option value="house">House</option>
-                <option value="condo">Condo</option>
-                <option value="townhouse">Townhouse</option>
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Property Name *
+                </label>
+                <input
+                  {...register('name', { required: 'Property name is required' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter property name"
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Property Type
+                </label>
+                <select
+                  {...register('type')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select property type</option>
+                  {propertyTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  {...register('description')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Enter property description"
+                />
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Address
-            </label>
-            <input
-              type="text"
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Full property address"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bedrooms
-              </label>
-              <input
-                type="number"
-                name="bedrooms"
-                value={formData.bedrooms}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                min="0"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bathrooms
-              </label>
-              <input
-                type="number"
-                name="bathrooms"
-                value={formData.bathrooms}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                min="0"
-                step="0.5"
-                required
-              />
+          {/* Property Images */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Image className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Property Images</h2>
+              <span className="text-sm text-gray-500">(Max 5 images, 4MB each)</span>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Monthly Rent ($)
-              </label>
-              <input
-                type="number"
-                name="rent"
-                value={formData.rent}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                min="0"
-                required
-              />
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                  <p className="text-gray-600">Click to upload images</p>
+                  <p className="text-sm text-gray-500">PNG, JPG up to 4MB each</p>
+                </label>
+              </div>
+
+              {selectedImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {selectedImages.map((file, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Describe the property features, amenities, etc."
-            ></textarea>
+          {/* Location Information */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Location Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address *
+                </label>
+                <textarea
+                  {...register('address', { required: 'Address is required' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                  placeholder="Enter full address"
+                />
+                {errors.address && (
+                  <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City *
+                </label>
+                <input
+                  {...register('city', { required: 'City is required' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter city"
+                />
+                {errors.city && (
+                  <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  State *
+                </label>
+                <input
+                  {...register('state', { required: 'State is required' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter state"
+                />
+                {errors.state && (
+                  <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Pincode *
+                </label>
+                <input
+                  {...register('pincode', { 
+                    required: 'Pincode is required',
+                    min: { value: 100000, message: 'Invalid pincode' },
+                    max: { value: 999999, message: 'Invalid pincode' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter pincode"
+                />
+                {errors.pincode && (
+                  <p className="text-red-500 text-sm mt-1">{errors.pincode.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Landmark
+                </label>
+                <input
+                  {...register('landmark')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter landmark"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Google Maps Link
+                </label>
+                <input
+                  {...register('googleMapLink')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter Google Maps link"
+                />
+              </div>
+            </div>
           </div>
 
+          {/* Property Details */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Settings className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Property Details</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Floor Size (sq ft) *
+                </label>
+                <input
+                  {...register('floorSize', { 
+                    required: 'Floor size is required',
+                    min: { value: 1, message: 'Must be positive' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter floor size"
+                />
+                {errors.floorSize && (
+                  <p className="text-red-500 text-sm mt-1">{errors.floorSize.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Floors *
+                </label>
+                <input
+                  {...register('totalFloor', { 
+                    required: 'Total floors is required',
+                    min: { value: 1, message: 'Must be at least 1' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter total floors"
+                />
+                {errors.totalFloor && (
+                  <p className="text-red-500 text-sm mt-1">{errors.totalFloor.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Area (sq ft)
+                </label>
+                <input
+                  {...register('totalArea', { min: { value: 1, message: 'Must be positive' } })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter total area"
+                />
+                {errors.totalArea && (
+                  <p className="text-red-500 text-sm mt-1">{errors.totalArea.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Seating Capacity *
+                </label>
+                <input
+                  {...register('seatingCapacity', { 
+                    required: 'Seating capacity is required',
+                    min: { value: 1, message: 'Must be at least 1' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter seating capacity"
+                />
+                {errors.seatingCapacity && (
+                  <p className="text-red-500 text-sm mt-1">{errors.seatingCapacity.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Furnishing Level
+                </label>
+                <select
+                  {...register('furnishingLevel')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select furnishing level</option>
+                  <option value="Fully Furnished">Fully Furnished</option>
+                  <option value="Semi Furnished">Semi Furnished</option>
+                  <option value="Unfurnished">Unfurnished</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Information */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Pricing Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Cost *
+                </label>
+                <input
+                  {...register('cost', { 
+                    required: 'Cost is required',
+                    min: { value: 1, message: 'Must be positive' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter total cost"
+                />
+                {errors.cost && (
+                  <p className="text-red-500 text-sm mt-1">{errors.cost.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cost Per Seat *
+                </label>
+                <input
+                  {...register('totalCostPerSeat', { 
+                    required: 'Cost per seat is required',
+                    min: { value: 1, message: 'Must be positive' }
+                  })}
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter cost per seat"
+                />
+                {errors.totalCostPerSeat && (
+                  <p className="text-red-500 text-sm mt-1">{errors.totalCostPerSeat.message}</p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    {...register('isPriceNegotiable')}
+                    type="checkbox"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Price is negotiable</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Operating Hours */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Operating Hours</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    {...register('isSaturdayOpened')}
+                    type="checkbox"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Open on Saturday</span>
+                </label>
+
+                <label className="flex items-center space-x-2">
+                  <input
+                    {...register('isSundayOpened')}
+                    type="checkbox"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Open on Sunday</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Unavailable Dates
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addUnavailableDate}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </button>
+                </div>
+                
+                {watchedDates.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {watchedDates.map((date, index) => (
+                      <span
+                        key={index}
+                        className="bg-red-100 text-red-800 px-2 py-1 rounded-md flex items-center gap-1 text-sm"
+                      >
+                        {date}
+                        <button
+                          type="button"
+                          onClick={() => removeUnavailableDate(date)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Amenities */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-800">Amenities</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {commonAmenities.map(amenity => (
+                  <label key={amenity} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={watchedAmenities.includes(amenity)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          addAmenity(amenity);
+                        } else {
+                          removeAmenity(amenity);
+                        }
+                      }}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{amenity}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add Custom Amenity
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={newAmenity}
+                    onChange={(e) => setNewAmenity(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter custom amenity"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomAmenity}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {watchedAmenities.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Selected Amenities
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {watchedAmenities.map((amenity, index) => (
+                      <span
+                        key={index}
+                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md flex items-center gap-1 text-sm"
+                      >
+                        {amenity}
+                        <button
+                          type="button"
+                          onClick={() => removeAmenity(amenity)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {errors.amenities && (
+                <p className="text-red-500 text-sm">{errors.amenities.message}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Submit Button */}
           <div className="flex justify-end space-x-4">
             <button
               type="button"
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={() => {
+                reset();
+                setSelectedImages([]);
+              }}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
             >
-              Cancel
+              Reset
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={mutation.isPending}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Property
+              {mutation.isPending ? 'Creating...' : 'Create Property'}
             </button>
           </div>
         </form>
@@ -176,4 +794,5 @@ const CreateProperty = () => {
     </div>
   );
 };
+
 export default CreateProperty;

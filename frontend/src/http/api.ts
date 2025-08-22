@@ -6,7 +6,6 @@ const backendUrl =
         ? "http://localhost:3004"
         : import.meta.env.VITE_BACKEND_URL;
 
-
 const api = axios.create({
     baseURL: backendUrl,
     headers: {
@@ -35,13 +34,15 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = sessionAccessToken;
         config.headers.refreshToken = sessionRefreshToken;
     }
+    if (!config.headers.Authorization) {
+        console.warn('No authentication token found');
+        
+    }
 
     return config;
 }, (error) => {
     return Promise.reject(error);
 });
-
-
 
 const login = async (data: { email: string; password: string }) => {
     const res = await api.post('/api/v1/users/login', data)
@@ -53,8 +54,84 @@ const registerUser = async (data: { email: string; password: string; name: strin
     return res.data
 }
 
+// Create Property API function
+const createProperty = async (formData: FormData) => {
+    
+
+    
+    const response = await api.post(`/api/v1/properties/`, formData,{
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    
+    return response.data;
+};
+
+// Get user properties
+const getUserProperties = async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    verificationStatus?: string;
+    type?: string;
+}) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.verificationStatus) queryParams.append('verificationStatus', params.verificationStatus);
+    if (params?.type) queryParams.append('type', params.type);
+
+    const res = await api.get(`/api/v1/properties/user/my-properties?${queryParams.toString()}`);
+    return res.data;
+};
+
+// Get property by ID
+const getPropertyById = async (propertyId: string) => {
+    const res = await api.get(`/api/v1/properties/${propertyId}`);
+    return res.data;
+};
+
+// Get public properties (active and verified)
+const getPublicProperties = async (params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    city?: string;
+    state?: string;
+    minCost?: number;
+    maxCost?: number;
+    amenities?: string | string[];
+    seatingCapacity?: number;
+}) => {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.city) queryParams.append('city', params.city);
+    if (params?.state) queryParams.append('state', params.state);
+    if (params?.minCost) queryParams.append('minCost', params.minCost.toString());
+    if (params?.maxCost) queryParams.append('maxCost', params.maxCost.toString());
+    if (params?.seatingCapacity) queryParams.append('seatingCapacity', params.seatingCapacity.toString());
+    
+    if (params?.amenities) {
+        if (Array.isArray(params.amenities)) {
+            params.amenities.forEach(amenity => queryParams.append('amenities', amenity));
+        } else {
+            queryParams.append('amenities', params.amenities);
+        }
+    }
+
+    const res = await api.get(`/api/v1/properties/public?${queryParams.toString()}`);
+    return res.data;
+};
 
 export {
     login,
-    registerUser
+    registerUser,
+    createProperty,
+    getUserProperties,
+    getPropertyById,
+    getPublicProperties
 }
