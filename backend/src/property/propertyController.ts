@@ -130,7 +130,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         } = validatedData;
 
         const _req = req as AuthRequest;
-        const { _id, sessionId } = _req;
+        const { _id, sessionId,isAccessTokenExp } = _req;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         console.log("Received files:", files);
@@ -153,6 +153,25 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         // only user role = propertyOwener is allowed
         if (user.role !== "propertyOwener") {
             return next(createHttpError(401, "You are not allowed for this request"));
+        }
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+        
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+            
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+            
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+            
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
         }
 
         // Check if property images are provided
@@ -376,7 +395,7 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
 const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const _req = req as AuthRequest;
-        const { _id, sessionId } = _req;
+        const { _id, sessionId,isAccessTokenExp } = _req;
 
         // Validate user and session
         const user = await User.findById(_id).select("-password");
@@ -391,6 +410,25 @@ const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: N
         // Check if user is admin
         if (user.role !== "admin") {
             return next(createHttpError(403, "Access denied. Admin role required"));
+        }
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+        
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+            
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+            
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+            
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
         }
 
         // Get pagination parameters
