@@ -74,9 +74,9 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
     const filesToDelete: string[] = []; // Track files to delete
 
     try {
-         // Pre-process the request body to handle FormData JSON strings
+        // Pre-process the request body to handle FormData JSON strings
         const processedBody = { ...req.body };
-        
+
         // Handle amenities - parse JSON string back to array
         if (req.body.amenities && typeof req.body.amenities === 'string') {
             try {
@@ -130,7 +130,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         } = validatedData;
 
         const _req = req as AuthRequest;
-        const { _id, sessionId,isAccessTokenExp } = _req;
+        const { _id, sessionId, isAccessTokenExp } = _req;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         console.log("Received files:", files);
@@ -149,7 +149,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         if (!user.isEmailVerify) {
             return next(createHttpError(401, "User email is not verified"));
         }
-        
+
         // only user role = propertyOwener is allowed
         if (user.role !== "propertyOwener") {
             return next(createHttpError(401, "You are not allowed for this request"));
@@ -157,19 +157,19 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         // Handle access token expiration and session update
         let newAccessToken = null;
         let newRefreshToken = null;
-        
+
         if (isAccessTokenExp) {
             // Update session activity (this may extend the session and generate new refresh token)
             const updateResult = user.updateSessionActivity(sessionId);
-            
+
             // Generate new access token
             newAccessToken = user.generateAccessToken(sessionId);
-            
+
             // If session was extended, we get a new refresh token
             if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
                 newRefreshToken = updateResult.newRefreshToken;
             }
-            
+
             // Save user with updated session
             await user.save({ validateBeforeSave: false });
         }
@@ -178,7 +178,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         if (!files || !files.propertyImage || files.propertyImage.length === 0) {
             return next(createHttpError(400, "At least one property image is required"));
         }
-        
+
 
         const propertyImages = files.propertyImage;
 
@@ -332,7 +332,7 @@ const getPropertyById = async (req: Request, res: Response, next: NextFunction) 
 const getUserProperties = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const _req = req as AuthRequest;
-        const { _id, sessionId } = _req;
+        const { _id, sessionId, isAccessTokenExp } = _req;
 
         // Validate user and session
         const user = await User.findById(_id).select("-password");
@@ -342,6 +342,25 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
 
         if (!user.isSessionValid(sessionId)) {
             return next(createHttpError(401, "Invalid or expired session"));
+        }
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
         }
 
         // Get pagination parameters
@@ -395,7 +414,7 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
 const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const _req = req as AuthRequest;
-        const { _id, sessionId,isAccessTokenExp } = _req;
+        const { _id, sessionId, isAccessTokenExp } = _req;
 
         // Validate user and session
         const user = await User.findById(_id).select("-password");
@@ -414,19 +433,19 @@ const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: N
         // Handle access token expiration and session update
         let newAccessToken = null;
         let newRefreshToken = null;
-        
+
         if (isAccessTokenExp) {
             // Update session activity (this may extend the session and generate new refresh token)
             const updateResult = user.updateSessionActivity(sessionId);
-            
+
             // Generate new access token
             newAccessToken = user.generateAccessToken(sessionId);
-            
+
             // If session was extended, we get a new refresh token
             if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
                 newRefreshToken = updateResult.newRefreshToken;
             }
-            
+
             // Save user with updated session
             await user.save({ validateBeforeSave: false });
         }
@@ -507,7 +526,7 @@ const getAllPropertyForActiveAndVerified = async (req: Request, res: Response, n
         if (type) filter.type = type;
         if (city) filter.city = new RegExp(city as string, 'i');
         if (state) filter.state = new RegExp(state as string, 'i');
-        
+
         // Price range filter
         if (minCost || maxCost) {
             filter.cost = {};
