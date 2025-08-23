@@ -279,7 +279,10 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
                 verificationStatus: savedProperty.verificationStatus,
                 propertyStatus: savedProperty.propertyStatus,
                 createdAt: savedProperty.createdAt
-            }
+            },
+            isAccessTokenExp,
+            accessToken:isAccessTokenExp?newAccessToken:null,
+            refreshToken:isAccessTokenExp?newRefreshToken:null
         });
 
     } catch (error) {
@@ -401,7 +404,10 @@ const getUserProperties = async (req: Request, res: Response, next: NextFunction
                     hasNextPage: page < totalPages,
                     hasPrevPage: page > 1
                 }
-            }
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: isAccessTokenExp ? newRefreshToken : null
         });
 
     } catch (error) {
@@ -497,7 +503,10 @@ const getAllPropertiesForAdminRole = async (req: Request, res: Response, next: N
                     type: type || null,
                     city: city || null,
                     state: state || null
-                }
+                },
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: isAccessTokenExp ? newRefreshToken : null
             }
         });
 
