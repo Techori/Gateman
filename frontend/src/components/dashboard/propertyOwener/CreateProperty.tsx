@@ -1,43 +1,68 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
-// You'll need to import axios from your api.ts file
+import { z } from "zod";
+import { zodResolver } from '@hookform/resolvers/zod';
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
 import { Upload, X, Plus, MapPin, Home, DollarSign, Calendar, Users, Settings, Image } from 'lucide-react';
 import { createProperty } from '@/http/api';
 import type { AxiosError } from 'axios';
 
-// Types
-interface PropertyFormData {
-  name: string;
-  description?: string;
-  landmark?: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: number;
-  googleMapLink?: string;
-  totalArea?: number;
-  type?: string;
-  floorSize: number;
-  totalFloor: number;
-  cost: number;
-  amenities: string[];
-  isSaturdayOpened: boolean;
-  isSundayOpened: boolean;
-  seatingCapacity: number;
-  totalCostPerSeat: number;
-  isPriceNegotiable: boolean;
-  unavailableDates?: string[];
-  furnishingLevel?: string;
- 
-}
+// Zod Schema Definition
+const propertySchema = z.object({
+  // Basic Information
+  name: z.string().min(1, "Property name is required"),
+  description: z.string().optional(),
+  type: z.string().optional(),
+  
+  // Location Information
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  pincode: z.coerce.number()
+    .int("Pincode must be an integer")
+    .min(100000, "Invalid pincode")
+    .max(999999, "Invalid pincode"),
+  landmark: z.string().optional(),
+  googleMapLink: z.string().url("Invalid URL format").optional().or(z.literal("")),
+  
+  // Property Details
+  floorSize: z.coerce.number()
+    .positive("Floor size must be greater than 0"),
+  totalFloor: z.coerce.number()
+    .int("Total floors must be an integer")
+    .min(1, "Must have at least 1 floor"),
+  totalArea: z.coerce.number()
+    .positive("Total area must be greater than 0")
+    .optional(),
+  seatingCapacity: z.coerce.number()
+    .int("Seating capacity must be an integer")
+    .min(1, "Must have at least 1 seat"),
+  furnishingLevel: z.enum(["Fully Furnished", "Semi Furnished", "Unfurnished", ""]).optional(),
+  
+  // Pricing Information
+  cost: z.coerce.number()
+    .positive("Cost must be greater than 0"),
+  totalCostPerSeat: z.coerce.number()
+    .positive("Cost per seat must be greater than 0"),
+  isPriceNegotiable: z.boolean().default(false),
+  
+  // Operating Hours
+  isSaturdayOpened: z.boolean().default(true),
+  isSundayOpened: z.boolean().default(false),
+  
+  // Arrays
+  amenities: z.array(z.string()).default([]),
+  unavailableDates: z.array(z.string()).default([])
+});
 
-interface ErrorResponse{
-  message:string
-}
+// Type inference from schema
+export type PropertyFormData = z.infer<typeof propertySchema>;
 
+interface ErrorResponse {
+  message: string;
+}
 
 const CreateProperty = () => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -47,12 +72,12 @@ const CreateProperty = () => {
   const {
     register,
     handleSubmit,
-    
     watch,
     setValue,
     formState: { errors },
     reset,
   } = useForm<PropertyFormData>({
+    resolver: zodResolver(propertySchema),
     defaultValues: {
       isSaturdayOpened: true,
       isSundayOpened: false,
@@ -63,9 +88,9 @@ const CreateProperty = () => {
   });
 
   const mutation = useMutation({
-    mutationFn: createProperty, // Replace with actual import: createProperty
+    mutationFn: createProperty,
     onSuccess: (data) => {
-      console.log("api response data",data)
+      console.log("api response data", data);
       alert('Property created successfully!');
       reset();
       setSelectedImages([]);
@@ -161,104 +186,46 @@ const CreateProperty = () => {
     setValue('unavailableDates', watchedDates.filter(d => d !== date));
   };
 
-  // const onSubmit = (data: PropertyFormData) => {
-  //   console.log("form data",data);
+  const onSubmit = (data: PropertyFormData) => {
+    console.log("form data", data);
     
-  //   if (selectedImages.length === 0) {
-  //     alert('Please upload at least one property image');
-  //     return;
-  //   }
-
-  //   const formData = new FormData();
-    
-  //   // Append all form fields
-  //   Object.entries(data).forEach(([key, value]) => {
-  //     if (key === 'amenities' || key === 'unavailableDates') {
-  //       if (Array.isArray(value)) {
-  //         value.forEach(item => formData.append(key, item));
-  //       }
-  //     } else if (value !== undefined && value !== null && value !== '') {
-  //       formData.append(key, value.toString());
-  //     }
-  //   });
-
-  //   // Append images
-  //   selectedImages.forEach(file => {
-  //     formData.append('propertyImage', file);
-  //   });
-
-  //   mutation.mutate(formData);
-  // };
-
-//   const onSubmit = (data: PropertyFormData) => {
-//   console.log("form data", data);
-  
-//   if (selectedImages.length === 0) {
-//     alert('Please upload at least one property image');
-//     return;
-//   }
-
-//   const formData = new FormData();
-  
-//   // Append all form fields
-//   Object.entries(data).forEach(([key, value]) => {
-//     if (key === 'amenities' || key === 'unavailableDates') {
-//       // Send arrays as JSON strings
-//       if (Array.isArray(value)) {
-//         formData.append(key, JSON.stringify(value));
-//       }
-//     } else if (value !== undefined && value !== null && value !== '') {
-//       formData.append(key, value.toString());
-//     }
-//   });
-
-//   // Append images
-//   selectedImages.forEach(file => {
-//     formData.append('propertyImage', file);
-//   });
-
-//   mutation.mutate(formData);
-// };
-
-const onSubmit = (data: PropertyFormData) => {
-  console.log("form data", data);
-  
-  if (selectedImages.length === 0) {
-    alert('Please upload at least one property image');
-    return;
-  }
-
-  const formData = new FormData();
-  
-  // Append all form fields (excluding propertyImages from form data)
-  Object.entries(data).forEach(([key, value]) => {
-    // Skip the propertyImages field as we handle it separately
-    if (key === 'propertyImages') return;
-    
-    if (key === 'amenities' || key === 'unavailableDates') {
-      // Send arrays as JSON strings
-      if (Array.isArray(value)) {
-        formData.append(key, JSON.stringify(value));
-      }
-    } else if (value !== undefined && value !== null && value !== '') {
-      formData.append(key, value.toString());
+    if (selectedImages.length === 0) {
+      alert('Please upload at least one property image');
+      return;
     }
-  });
 
-  // CRITICAL FIX: Append images with the correct field name that matches multer config
-  selectedImages.forEach((file, index) => {
-    formData.append('propertyImage', file); // This must match multer field name
-    console.log(`Appending image ${index + 1}:`, file.name, file.size);
-  });
+    const formData = new FormData();
+    
+    // Append all form fields (excluding propertyImages from form data)
+    Object.entries(data).forEach(([key, value]) => {
+      // Skip the propertyImages field as we handle it separately
+      if (key === 'propertyImages') return;
+      
+      if (key === 'amenities' || key === 'unavailableDates') {
+        // Send arrays as JSON strings
+        if (Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        }
+      } else if (value !== undefined && value !== null && value !== '') {
+        formData.append(key, value.toString());
+      }
+    });
 
-  // Debug: Log FormData contents
-  console.log('FormData contents:');
-  for (const [key, value] of formData.entries()) {
-    console.log(key, value);
-  }
+    // CRITICAL FIX: Append images with the correct field name that matches multer config
+    selectedImages.forEach((file, index) => {
+      formData.append('propertyImage', file); // This must match multer field name
+      console.log(`Appending image ${index + 1}:`, file.name, file.size);
+    });
 
-  mutation.mutate(formData);
-};
+    // Debug: Log FormData contents
+    console.log('FormData contents:');
+    for (const [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+
+    mutation.mutate(formData);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -285,7 +252,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Property Name *
                 </label>
                 <input
-                  {...register('name', { required: 'Property name is required' })}
+                  {...register('name')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter property name"
                 />
@@ -307,6 +274,9 @@ const onSubmit = (data: PropertyFormData) => {
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
+                {errors.type && (
+                  <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">
@@ -319,6 +289,9 @@ const onSubmit = (data: PropertyFormData) => {
                   rows={3}
                   placeholder="Enter property description"
                 />
+                {errors.description && (
+                  <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -384,7 +357,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Address *
                 </label>
                 <textarea
-                  {...register('address', { required: 'Address is required' })}
+                  {...register('address')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={2}
                   placeholder="Enter full address"
@@ -399,7 +372,7 @@ const onSubmit = (data: PropertyFormData) => {
                   City *
                 </label>
                 <input
-                  {...register('city', { required: 'City is required' })}
+                  {...register('city')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter city"
                 />
@@ -413,7 +386,7 @@ const onSubmit = (data: PropertyFormData) => {
                   State *
                 </label>
                 <input
-                  {...register('state', { required: 'State is required' })}
+                  {...register('state')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter state"
                 />
@@ -427,11 +400,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Pincode *
                 </label>
                 <input
-                  {...register('pincode', { 
-                    required: 'Pincode is required',
-                    min: { value: 100000, message: 'Invalid pincode' },
-                    max: { value: 999999, message: 'Invalid pincode' }
-                  })}
+                  {...register('pincode')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter pincode"
@@ -450,6 +419,9 @@ const onSubmit = (data: PropertyFormData) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter landmark"
                 />
+                {errors.landmark && (
+                  <p className="text-red-500 text-sm mt-1">{errors.landmark.message}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">
@@ -461,6 +433,9 @@ const onSubmit = (data: PropertyFormData) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter Google Maps link"
                 />
+                {errors.googleMapLink && (
+                  <p className="text-red-500 text-sm mt-1">{errors.googleMapLink.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -478,10 +453,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Floor Size (sq ft) *
                 </label>
                 <input
-                  {...register('floorSize', { 
-                    required: 'Floor size is required',
-                    min: { value: 1, message: 'Must be positive' }
-                  })}
+                  {...register('floorSize')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter floor size"
@@ -496,10 +468,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Total Floors *
                 </label>
                 <input
-                  {...register('totalFloor', { 
-                    required: 'Total floors is required',
-                    min: { value: 1, message: 'Must be at least 1' }
-                  })}
+                  {...register('totalFloor')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter total floors"
@@ -514,7 +483,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Total Area (sq ft)
                 </label>
                 <input
-                  {...register('totalArea', { min: { value: 1, message: 'Must be positive' } })}
+                  {...register('totalArea')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter total area"
@@ -529,10 +498,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Seating Capacity *
                 </label>
                 <input
-                  {...register('seatingCapacity', { 
-                    required: 'Seating capacity is required',
-                    min: { value: 1, message: 'Must be at least 1' }
-                  })}
+                  {...register('seatingCapacity')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter seating capacity"
@@ -555,6 +521,9 @@ const onSubmit = (data: PropertyFormData) => {
                   <option value="Semi Furnished">Semi Furnished</option>
                   <option value="Unfurnished">Unfurnished</option>
                 </select>
+                {errors.furnishingLevel && (
+                  <p className="text-red-500 text-sm mt-1">{errors.furnishingLevel.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -572,10 +541,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Total Cost *
                 </label>
                 <input
-                  {...register('cost', { 
-                    required: 'Cost is required',
-                    min: { value: 1, message: 'Must be positive' }
-                  })}
+                  {...register('cost')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter total cost"
@@ -590,10 +556,7 @@ const onSubmit = (data: PropertyFormData) => {
                   Cost Per Seat *
                 </label>
                 <input
-                  {...register('totalCostPerSeat', { 
-                    required: 'Cost per seat is required',
-                    min: { value: 1, message: 'Must be positive' }
-                  })}
+                  {...register('totalCostPerSeat')}
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter cost per seat"
