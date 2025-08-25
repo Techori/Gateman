@@ -278,7 +278,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
                 propertyImages: savedProperty.propertyImages,
                 verificationStatus: savedProperty.verificationStatus,
                 propertyStatus: savedProperty.propertyStatus,
-                createdAt: savedProperty.createdAt
+                
             },
             isAccessTokenExp,
             accessToken:isAccessTokenExp?newAccessToken:null,
