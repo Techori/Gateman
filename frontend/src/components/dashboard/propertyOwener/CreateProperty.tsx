@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { z } from "zod";
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,8 +18,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Upload, X, Plus, MapPin, Home, DollarSign, Calendar as CalendarIcon, Users, Settings, Image, Clock, Shield, Navigation } from 'lucide-react';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { createProperty } from '@/http/api';
+import { createProperty, logoutUserBySessionId } from '@/http/api';
 import type { AxiosError } from 'axios';
+import { deleteUser, updateAccessToken } from '@/features/auth/authSlice';
+import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router';
 
 // Updated Zod Schema to match new backend structure
 const timeSlotSchema = z.object({
@@ -68,7 +71,7 @@ const bookingRulesSchema = z.object({
   maxBookingHours: z.coerce.number().min(1).max(1728).default(24),
   bufferHours: z.coerce.number().min(0).max(4).default(0.5),
   allowedTimeSlots: z.array(timeSlotSchema).default([]),
-  advanceBookingDays: z.coerce.number().min(0).max(365).default(30),
+
   checkoutGracePeriod: z.coerce.number().min(0).max(60).default(15)
 });
 
@@ -135,7 +138,9 @@ const CreateProperty = () => {
   const [newAmenity, setNewAmenity] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
-
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  
   const {
     register,
     handleSubmit,
@@ -143,7 +148,6 @@ const CreateProperty = () => {
     setValue,
     formState: { errors },
     reset,
-    
   } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
@@ -168,7 +172,7 @@ const CreateProperty = () => {
         maxBookingHours: 24,
         bufferHours: 0.5,
         allowedTimeSlots: [],
-        advanceBookingDays: 30,
+        
         checkoutGracePeriod: 15
       }
     },
@@ -176,16 +180,53 @@ const CreateProperty = () => {
 
   const mutation = useMutation({
     mutationFn: createProperty,
-    onSuccess: (data) => {
-      console.log("API response data", data);
+    onSuccess: (response) => {
+      console.log("API response data", response);
       alert('Property created successfully!');
       reset();
       setSelectedImages([]);
+      // update access and refresh token
+      if (response.isAccessTokenExp) {
+              const { accessToken, refreshToken } = response;
+              if (accessToken && refreshToken) {
+                // update access refresh token in   session storage
+                const userSessionData = JSON.parse(
+                  sessionStorage.getItem("user") || `{}`
+                );
+                userSessionData.accessToken = accessToken;
+                userSessionData.refreshToken = refreshToken;
+                sessionStorage.removeItem("user");
+                sessionStorage.setItem("user", JSON.stringify(userSessionData));
+              }
+              if (accessToken) {
+                // update access  token in redux and session storage
+                dispatch(updateAccessToken(accessToken));
+                const userSessionData = JSON.parse(
+                  sessionStorage.getItem("user") || `{}`
+                );
+                userSessionData.accessToken = accessToken;
+                sessionStorage.removeItem("user");
+                sessionStorage.setItem("user", JSON.stringify(userSessionData));
+              }
+            }
     },
-    onError: (error: AxiosError<ErrorResponse>) => {
-      console.log('Error creating property:', error);
-      const message = error.response?.data?.message || 'Failed to create property. Please try again.';
+    onError: async(err: AxiosError<ErrorResponse>) => {
+      console.log('Error creating property:', err);
+      const message = err.response?.data?.message || 'Failed to create property. Please try again.';
       alert(message);
+      // logout user if token exprie
+      if (err.response?.status === 401) {
+        console.log("err.response?.status :", err.response?.status);
+        const userSessionData = JSON.parse(
+          sessionStorage.getItem("user") || `{}`
+        );
+        const id = userSessionData.id;
+        const sessionId = userSessionData.sessionId;
+        dispatch(deleteUser());
+        sessionStorage.clear();
+        await logoutUserBySessionId({ id, sessionId });
+        navigate("/auth/login");
+      }
     },
   });
 
@@ -297,7 +338,7 @@ const CreateProperty = () => {
     setValue('bookingRules.allowedTimeSlots', [...watchedTimeSlots, newSlot]);
   };
 
-  const updateTimeSlot = (index: number, field: string, value: any) => {
+  const updateTimeSlot = (index: number, field: keyof (typeof watchedTimeSlots)[0], value: any) => {
     const updatedSlots = [...watchedTimeSlots];
     updatedSlots[index] = { ...updatedSlots[index], [field]: value };
     setValue('bookingRules.allowedTimeSlots', updatedSlots);
@@ -307,37 +348,55 @@ const CreateProperty = () => {
     setValue('bookingRules.allowedTimeSlots', watchedTimeSlots.filter((_, i) => i !== index));
   };
 
-  const onSubmit = (data: PropertyFormData) => {
+  // Fix the onSubmit function with proper typing
+  const onSubmit: SubmitHandler<PropertyFormData> = (data) => {
     console.log("Form data", data);
     
     if (selectedImages.length === 0) {
-      alert('Please upload at least one property image');
-      return;
+        alert('Please upload at least one property image');
+        return;
     }
 
     const formData = new FormData();
     
     // Append all form fields
     Object.entries(data).forEach(([key, value]) => {
-      if (key === 'amenities' || key === 'unavailableDates') {
-        if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value));
+        if (key === 'amenities' || key === 'unavailableDates') {
+            if (Array.isArray(value)) {
+                formData.append(key, JSON.stringify(value));
+            }
+        } else if (key === 'pricing' || key === 'policies' || key === 'location') {
+            formData.append(key, JSON.stringify(value));
+        } else if (key === 'bookingRules') {
+            // Now TypeScript knows that data.bookingRules exists and has the correct type
+            const bookingRulesData = {
+                minBookingHours: data.bookingRules.minBookingHours || 1,
+                maxBookingHours: data.bookingRules.maxBookingHours || 24,
+                bufferHours: data.bookingRules.bufferHours || 0.5,
+                allowedTimeSlots: data.bookingRules.allowedTimeSlots || [],
+                
+                checkoutGracePeriod: data.bookingRules.checkoutGracePeriod || 15
+            };
+            console.log('Sending bookingRules:', bookingRulesData);
+            formData.append(key, JSON.stringify(bookingRulesData));
+        } else if (value !== undefined && value !== null && value !== '') {
+            formData.append(key, value.toString());
         }
-      } else if (key === 'pricing' || key === 'policies' || key === 'location' || key === 'bookingRules') {
-        formData.append(key, JSON.stringify(value));
-      } else if (value !== undefined && value !== null && value !== '') {
-        formData.append(key, value.toString());
-      }
     });
+
+    // Debug: Log what's being sent
+    console.log('FormData contents:');
+    for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+    }
 
     // Append images
     selectedImages.forEach((file) => {
-      formData.append('propertyImage', file);
+        formData.append('propertyImage', file);
     });
 
     mutation.mutate(formData);
   };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -889,17 +948,7 @@ const CreateProperty = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="advanceBookingDays">Advance Booking Days</Label>
-                  <Input
-                    id="advanceBookingDays"
-                    type="number"
-                    min="0"
-                    max="365"
-                    {...register('bookingRules.advanceBookingDays')}
-                    placeholder="Days in advance"
-                  />
-                </div>
+                
 
                 <div className="space-y-2">
                   <Label htmlFor="checkoutGracePeriod">Checkout Grace Period (min)</Label>
