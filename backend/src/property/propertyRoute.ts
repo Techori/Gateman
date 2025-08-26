@@ -11,7 +11,8 @@ import {
     getAllPropertyForActiveAndVerified,
     allPropertyOfOwner,
     getAllPropertyOfOwnerByType,
-    allVerifiedPropertyWithPagination
+    allVerifiedPropertyWithPagination,
+    allVerifiedPropertyWithPaginationWithType
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -65,6 +66,7 @@ propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyO
 
 // for user /client no auth is required
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
+propertyRoute.post("/client/all-verified-properties-with-type", allVerifiedPropertyWithPaginationWithType);
 
 // PARAMETERIZED ROUTES MUST COME LAST
 // Get property by ID (public can view verified properties)

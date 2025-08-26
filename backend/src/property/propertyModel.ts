@@ -173,12 +173,7 @@ const bookingRulesSchema = new mongoose.Schema({
             default: true
         }
     }],
-    advanceBookingDays: {
-        type: Number,
-        min: 0,
-        max: 365,
-        default: 30
-    },
+    
     // Grace period for checkout (in minutes)
     checkoutGracePeriod: {
         type: Number,
@@ -210,7 +205,7 @@ interface IBookingRules {
     maxBookingHours: number;
     bufferHours: number;
     allowedTimeSlots: ITimeSlot[];
-    advanceBookingDays: number;
+    
     checkoutGracePeriod: number;
 }
 
@@ -408,7 +403,7 @@ const propertySchema = new mongoose.Schema(
                 maxBookingHours: 24,
                 bufferHours: 0.5, // 30 minutes default
                 allowedTimeSlots: [],
-                advanceBookingDays: 30,
+               
                 checkoutGracePeriod: 15
             })
         }
