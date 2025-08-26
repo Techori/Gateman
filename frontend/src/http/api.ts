@@ -62,6 +62,10 @@ const fecthAllOwnerProperty = async (data:{page:number,limit:number})=>{
     const res = await api.post('/owner/all-properties',data)
     return res.data
 }
+const fecthAllOwnerPropertyWithType = async (data:{page:number,limit:number,type:string})=>{
+    const res = await api.post('/owner/all-properties',data)
+    return res.data
+}
 
 const logoutUserBySessionId = async(data: { id: string;sessionId: string; })=>{
     const res = await api.post("/api/v1/users/logoutUserBySessionId",data)
@@ -153,5 +157,6 @@ export {
     getPublicProperties,
     createEmployee,
     logoutUserBySessionId,
-    fecthAllOwnerProperty
+    fecthAllOwnerProperty,
+    fecthAllOwnerPropertyWithType
 }
