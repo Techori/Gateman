@@ -49,6 +49,25 @@ const login = async (data: { email: string; password: string }) => {
     return res.data
 }
 
+const createEmployee = async (data: { email: string; password: string }) => {
+    const res = await api.post('/api/v1/users/createEmployee', data)
+    return res.data
+}
+
+const logoutUser = async()=>{
+    const res = await api.post('')
+    return res.data
+}
+const fecthAllOwnerProperty = async (data:{page:number,limit:number})=>{
+    const res = await api.post('/owner/all-properties',data)
+    return res.data
+}
+
+const logoutUserBySessionId = async(data: { id: string;sessionId: string; })=>{
+    const res = await api.post("/api/v1/users/logoutUserBySessionId",data)
+    return res.data
+}
+
 const registerUser = async (data: { email: string; password: string; name: string; }) => {
     const res = await api.post('/api/v1/users/register', data)
     return res.data
@@ -56,9 +75,7 @@ const registerUser = async (data: { email: string; password: string; name: strin
 
 // Create Property API function
 const createProperty = async (formData: FormData) => {
-    
 
-    
     const response = await api.post(`/api/v1/properties/`, formData,{
         headers: {
             'Content-Type': 'multipart/form-data'
@@ -133,5 +150,8 @@ export {
     createProperty,
     getUserProperties,
     getPropertyById,
-    getPublicProperties
+    getPublicProperties,
+    createEmployee,
+    logoutUserBySessionId,
+    fecthAllOwnerProperty
 }
