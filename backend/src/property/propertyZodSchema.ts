@@ -11,12 +11,12 @@ const createPropertySchema = z.object({
     googleMapLink: z.string().url().optional().or(z.literal("")),
     totalArea: z.coerce.number().positive().optional(),
     type: z.enum([
-        "DayPass", 
-        "Meeting Room", 
-        "Coworking Space", 
-        "Managed Office", 
-        "Virtual office", 
-        "Office/Commercial", 
+        "DayPass",
+        "Meeting Room",
+        "Coworking Space",
+        "Managed Office",
+        "Virtual office",
+        "Office/Commercial",
         "Community Hall"
     ]).optional(),
     floorSize: z.coerce.number().positive("Floor size must be positive"),
@@ -84,12 +84,12 @@ const propertyFilterSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(50).default(10),
     type: z.enum([
-        "DayPass", 
-        "Meeting Room", 
-        "Coworking Space", 
-        "Managed Office", 
-        "Virtual office", 
-        "Office/Commercial", 
+        "DayPass",
+        "Meeting Room",
+        "Coworking Space",
+        "Managed Office",
+        "Virtual office",
+        "Office/Commercial",
         "Community Hall"
     ]).optional(),
     city: z.string().trim().optional(),
@@ -114,9 +114,21 @@ const propertyFilterSchema = z.object({
     path: ["minCost"]
 });
 
-export { 
-    createPropertySchema, 
-    updatePropertySchema, 
+const pageAndLimitSchema = z.object({
+    page: z.number().positive(),
+    limit: z.number().positive()
+})
+const pageAndLimitTypeSchema = z.object({
+    page: z.number().positive(),
+    limit: z.number().positive(),
+    type:z.string().min(1,"property type is required")
+})
+
+export {
+    createPropertySchema,
+    updatePropertySchema,
     adminPropertyActionSchema,
-    propertyFilterSchema 
+    propertyFilterSchema,
+    pageAndLimitSchema,
+    pageAndLimitTypeSchema
 };

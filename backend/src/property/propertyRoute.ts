@@ -9,7 +9,8 @@ import {
     getUserProperties,
     getAllPropertiesForAdminRole,
     getAllPropertyForActiveAndVerified,
-    allPropertyOfOwner
+    allPropertyOfOwner,
+    getAllPropertyOfOwnerByType
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -35,7 +36,7 @@ const upload = multer({
     }
 });
 
-// IMPORTANT: Place specific routes BEFORE parameterized routes
+
 
 // Protected routes (authentication required)
 // Create new property (only property owners)
@@ -58,7 +59,8 @@ propertyRoute.get("/user/my-properties", authenticate, getUserProperties);
 propertyRoute.get("/admin/all", authenticate, getAllPropertiesForAdminRole);
 
 // Get ALL property of property owner only access by (role:property owner)
-propertyRoute.get("/owner/all-properties", authenticate, allPropertyOfOwner);
+propertyRoute.post("/owner/all-properties", authenticate, allPropertyOfOwner);
+propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyOfOwnerByType);
 
 // PARAMETERIZED ROUTES MUST COME LAST
 // Get property by ID (public can view verified properties)
