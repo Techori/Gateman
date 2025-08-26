@@ -10,7 +10,8 @@ import {
     getAllPropertiesForAdminRole,
     getAllPropertyForActiveAndVerified,
     allPropertyOfOwner,
-    getAllPropertyOfOwnerByType
+    getAllPropertyOfOwnerByType,
+    allVerifiedPropertyWithPagination
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -61,6 +62,9 @@ propertyRoute.get("/admin/all", authenticate, getAllPropertiesForAdminRole);
 // Get ALL property of property owner only access by (role:property owner)
 propertyRoute.post("/owner/all-properties", authenticate, allPropertyOfOwner);
 propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyOfOwnerByType);
+
+// for user /client no auth is required
+propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
 
 // PARAMETERIZED ROUTES MUST COME LAST
 // Get property by ID (public can view verified properties)

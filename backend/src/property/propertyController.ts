@@ -871,6 +871,49 @@ const getAllPropertyOfOwnerByType = async (req: Request, res: Response, next: Ne
             }
         }
     } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
+
+// get all verified property with pagination no user login is required  
+const allVerifiedPropertyWithPagination = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        
+        // Get pagination parameters
+        const isValidLimitAndPage = pageAndLimitSchema.parse(req.body)
+        const { page, limit } = isValidLimitAndPage
+        
+        // page and limit must in number
+        
+        const skip = (page - 1) * limit;
+
+        const allProperties = await Property.find({verificationStatus:"verified"}).skip(skip).limit(limit).exec();
+
+        if(allProperties){
+            res.status(200).json({
+                success: true,
+                    message: "Fetch all owner property",
+                    allProperties,
+
+            })
+        }
+        
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
         console.error("Get all property error:", error);
         next(createHttpError(500, "Internal server error while fetching property"));
     }
@@ -1175,5 +1218,6 @@ export {
     getAllPropertiesForAdminRole,
     getAllPropertyForActiveAndVerified,
     allPropertyOfOwner,
-    getAllPropertyOfOwnerByType
+    getAllPropertyOfOwnerByType,
+    allVerifiedPropertyWithPagination
 };
