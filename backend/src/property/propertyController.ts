@@ -278,7 +278,7 @@ import cloudinary from "../config/cloudinary.js";
 //                 propertyImages: savedProperty.propertyImages,
 //                 verificationStatus: savedProperty.verificationStatus,
 //                 propertyStatus: savedProperty.propertyStatus,
-                
+
 //             },
 //             isAccessTokenExp,
 //             accessToken:isAccessTokenExp?newAccessToken:null,
@@ -574,21 +574,21 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
 
         // Process pricing data
         const pricingData = processedBody.pricing || {};
-        
+
         // Validate that at least one pricing option is provided
-        if (!pricingData.hourlyRate && !pricingData.dailyRate && 
+        if (!pricingData.hourlyRate && !pricingData.dailyRate &&
             !pricingData.weeklyRate && !pricingData.monthlyRate) {
             return next(createHttpError(400, "At least one pricing option (hourly, daily, weekly, or monthly) is required"));
         }
 
         // Process time slots data
         const allowedTimeSlots = processedBody.allowedTimeSlots || [];
-        
+
         // Validate time slots if provided
         if (allowedTimeSlots.length > 0) {
             const validDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
             const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-            
+
             for (const slot of allowedTimeSlots) {
                 if (!validDays.includes(slot.day?.toLowerCase())) {
                     return next(createHttpError(400, `Invalid day: ${slot.day}. Must be one of: ${validDays.join(', ')}`));
@@ -716,6 +716,68 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
         next(createHttpError(500, "Internal server error while creating property"));
     }
 };
+
+// get all property of property owner
+
+const allPropertyOfOwner = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // only user role = propertyOwener is allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+            console.log(" user id", user._id);
+            
+            //  find all owner property
+            const allProperties = await Property.find({ ownerId: user._id }).sort({ createdAt: -1 });
+            if (allProperties) {
+                res.status(200).json({
+                    success: true,
+                    message: "Fetch all owner property",
+                    allProperties
+                })
+            }
+        }
+    } catch (error) {
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
 
 // Get property by ID
 const getPropertyById = async (req: Request, res: Response, next: NextFunction) => {
@@ -1014,5 +1076,6 @@ export {
     getPropertyById,
     getUserProperties,
     getAllPropertiesForAdminRole,
-    getAllPropertyForActiveAndVerified
+    getAllPropertyForActiveAndVerified,
+    allPropertyOfOwner
 };
