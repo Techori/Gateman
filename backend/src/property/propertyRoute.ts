@@ -3,16 +3,18 @@ import authenticate, { optionalAuth } from "../middleware/authMiddleware.js";
 import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { 
-    createProperty, 
-    getPropertyById, 
+import {
+    createProperty,
+    getPropertyById,
     getUserProperties,
     getAllPropertiesForAdminRole,
     getAllPropertyForActiveAndVerified,
     allPropertyOfOwner,
     getAllPropertyOfOwnerByType,
     allVerifiedPropertyWithPagination,
-    allVerifiedPropertyWithPaginationWithType
+    allVerifiedPropertyWithPaginationWithType,
+    allVerifiedPropertyWithCityWithPagination,
+    allVerifiedPropertyWithCityAndTypeWithPagination
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -24,7 +26,7 @@ const __dirname = path.dirname(__filename);
 // Configure multer for file uploads
 const upload = multer({
     dest: path.resolve(process.cwd(), "public/data/uploads"),
-    limits: { 
+    limits: {
         fileSize: 4 * 1024 * 1024, // 4MB per file
         files: 5 // Maximum 5 files
     },
@@ -43,9 +45,9 @@ const upload = multer({
 // Protected routes (authentication required)
 // Create new property (only property owners)
 propertyRoute.post(
-    "/", 
-    authenticate, 
-    upload.fields([{ name: "propertyImage", maxCount: 5 }]), 
+    "/",
+    authenticate,
+    upload.fields([{ name: "propertyImage", maxCount: 5 }]),
     createProperty
 );
 
@@ -67,6 +69,8 @@ propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyO
 // for user /client no auth is required
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
 propertyRoute.post("/client/all-verified-properties-with-type", allVerifiedPropertyWithPaginationWithType);
+propertyRoute.post("/client/all-verified-properties-with-city", allVerifiedPropertyWithCityWithPagination);
+propertyRoute.post("/client/all-verified-properties-with-city-type", allVerifiedPropertyWithCityAndTypeWithPagination);
 
 // PARAMETERIZED ROUTES MUST COME LAST
 // Get property by ID (public can view verified properties)

@@ -212,7 +212,18 @@ const pageAndLimitSchema = z.object({
 const pageAndLimitTypeSchema = z.object({
     page: z.number().positive(),
     limit: z.number().positive(),
-    type:z.string().min(1,"property type is required")
+    type: z.string().min(1, "property type is required")
+})
+const pageAndLimitCitySchema = z.object({
+    page: z.number().positive(),
+    limit: z.number().positive(),
+    city: z.string().min(1, " city is required")
+})
+const pageAndLimitCityAndTypeSchema = z.object({
+    page: z.number().positive(),
+    limit: z.number().positive(),
+    city: z.string().min(1, " city is required"),
+    type: z.string().min(1, "property type is required")
 })
 
 export {
@@ -221,5 +232,7 @@ export {
     adminPropertyActionSchema,
     propertyFilterSchema,
     pageAndLimitSchema,
-    pageAndLimitTypeSchema
+    pageAndLimitTypeSchema,
+    pageAndLimitCitySchema,
+    pageAndLimitCityAndTypeSchema
 };

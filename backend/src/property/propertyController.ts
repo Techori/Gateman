@@ -4,7 +4,7 @@ import { z, ZodError } from "zod";
 import path from "node:path";
 import fs from "node:fs";
 import type { AuthRequest } from "../middleware/authMiddleware.js";
-import { createPropertySchema, pageAndLimitSchema, pageAndLimitTypeSchema } from "./propertyZodSchema.js";
+import { createPropertySchema, pageAndLimitCityAndTypeSchema, pageAndLimitCitySchema, pageAndLimitSchema, pageAndLimitTypeSchema } from "./propertyZodSchema.js";
 import { Property } from "./propertyModel.js";
 import { User } from "../user/userModel.js";
 import cloudinary from "../config/cloudinary.js";
@@ -77,7 +77,7 @@ const createProperty = async (req: Request, res: Response, next: NextFunction) =
     const filesToDelete: string[] = []; // Track files to delete
 
     try {
-        
+
         const processedBody = { ...req.body };
 
         // Handle amenities - parse JSON string back to array
@@ -584,6 +584,8 @@ const getAllPropertyOfOwnerByType = async (req: Request, res: Response, next: Ne
     }
 }
 
+// find all verified properties with pagination with particular city  no user login is required
+
 // get all verified property with pagination no user login is required  
 const allVerifiedPropertyWithPagination = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -655,7 +657,76 @@ const allVerifiedPropertyWithPaginationWithType = async (req: Request, res: Resp
         next(createHttpError(500, "Internal server error while fetching property"));
     }
 }
+// find all verified properties with pagination with particular city (city name is required) no user login is required
+const allVerifiedPropertyWithCityWithPagination = async (req: Request, res: Response, next: NextFunction) => {
+    try {
 
+        // Get pagination parameters
+        const isValidLimitAndPage = pageAndLimitCitySchema.parse(req.body)
+        const { page, limit, city } = isValidLimitAndPage
+
+        // page and limit must in number
+
+        const skip = (page - 1) * limit;
+
+        const allProperties = await Property.find({ verificationStatus: "verified", city }).skip(skip).limit(limit).exec();
+
+        if (allProperties) {
+            res.status(200).json({
+                success: true,
+                message: "Fetch all owner property",
+                allProperties,
+
+            })
+        }
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
+// find all verified properties with pagination with particular city and property Type  no user login is required
+const allVerifiedPropertyWithCityAndTypeWithPagination = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+
+        // Get pagination parameters
+        const isValidLimitAndPage = pageAndLimitCityAndTypeSchema.parse(req.body)
+        const { page, limit, city, type } = isValidLimitAndPage
+
+        // page and limit must in number and 12
+
+        const skip = (page - 1) * limit;
+
+        const allProperties = await Property.find({ verificationStatus: "verified", city, type }).skip(skip).limit(limit).exec();
+
+        if (allProperties) {
+            res.status(200).json({
+                success: true,
+                message: "Fetch all owner property",
+                allProperties,
+
+            })
+        }
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
 // Get property by ID
 const getPropertyById = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -957,5 +1028,7 @@ export {
     allPropertyOfOwner,
     getAllPropertyOfOwnerByType,
     allVerifiedPropertyWithPagination,
-    allVerifiedPropertyWithPaginationWithType
+    allVerifiedPropertyWithPaginationWithType,
+    allVerifiedPropertyWithCityWithPagination,
+    allVerifiedPropertyWithCityAndTypeWithPagination
 };
