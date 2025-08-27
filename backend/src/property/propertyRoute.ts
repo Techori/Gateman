@@ -16,7 +16,8 @@ import {
     allVerifiedPropertyWithCityWithPagination,
     allVerifiedPropertyWithCityAndTypeWithPagination,
     getOwnerPropertyByVerificationStatusAndTypeWithPagination,
-    getOwnerPropertyByVerificationStatusWithPagination
+    getOwnerPropertyByVerificationStatusWithPagination,
+    getOwnerPropertyByCityNameWithPagination
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -69,6 +70,7 @@ propertyRoute.post("/owner/all-properties", authenticate, allPropertyOfOwner);
 propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyOfOwnerByType);
 propertyRoute.post("/owner/all-properties-byTypeAndVerificationStatus", authenticate, getOwnerPropertyByVerificationStatusAndTypeWithPagination);
 propertyRoute.post("/owner/all-properties-byVerificationStatus", authenticate, getOwnerPropertyByVerificationStatusWithPagination);
+propertyRoute.post("/owner/all-properties-byCityName", authenticate, getOwnerPropertyByCityNameWithPagination);
 
 // for user /client no auth is required
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
