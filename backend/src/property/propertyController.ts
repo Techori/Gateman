@@ -4,7 +4,7 @@ import { z, ZodError } from "zod";
 import path from "node:path";
 import fs from "node:fs";
 import type { AuthRequest } from "../middleware/authMiddleware.js";
-import { createPropertySchema, pageAndLimitCityAndTypeSchema, pageAndLimitCitySchema, pageAndLimitSchema, pageAndLimitTypeSchema } from "./propertyZodSchema.js";
+import { createPropertySchema, pageAndLimitCityAndTypeSchema, pageAndLimitCitySchema, pageAndLimitSchema, pageAndLimitTypeSchema, propertyStausSchema, propertyStausSchemawithType } from "./propertyZodSchema.js";
 import { Property } from "./propertyModel.js";
 import { User } from "../user/userModel.js";
 import cloudinary from "../config/cloudinary.js";
@@ -71,7 +71,7 @@ const uploadImageToCloudinary = async (
         throw new Error("Failed to upload image to Cloudinary");
     }
 };
-
+// propertyOwner
 // get all property of property owner
 const createProperty = async (req: Request, res: Response, next: NextFunction) => {
     const filesToDelete: string[] = []; // Track files to delete
@@ -583,6 +583,163 @@ const getAllPropertyOfOwnerByType = async (req: Request, res: Response, next: Ne
         next(createHttpError(500, "Internal server error while fetching property"));
     }
 }
+// get property by verfication status with pagination
+const getOwnerPropertyByVerificationStatusWithPagination = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        // Get pagination parameters
+        const isValidLimitAndPage = propertyStausSchema.parse(req.body)
+        const { verificationStatus, limit, page } = isValidLimitAndPage
+
+        // page and limit must in number
+
+        const skip = (page - 1) * limit;
+
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // only user role = propertyOwener is allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+            console.log(" user id", user._id);
+
+            //  find all owner property
+            const allProperties = await Property.find({ ownerId: user._id, verificationStatus }).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+            if (allProperties) {
+                res.status(200).json({
+                    success: true,
+                    message: "Fetch all owner property",
+                    allProperties,
+                    isAccessTokenExp,
+                    accessToken: isAccessTokenExp ? newAccessToken : null,
+                    refreshToken: newRefreshToken ? newRefreshToken : null
+                })
+            }
+        }
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
+
+// get property by verfication status and type with pagination
+const getOwnerPropertyByVerificationStatusAndTypeWithPagination = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        // Get pagination parameters
+        const isValidLimitAndPage = propertyStausSchemawithType.parse(req.body)
+        const { verificationStatus, limit, page, type } = isValidLimitAndPage
+
+        // page and limit must in number
+
+        const skip = (page - 1) * limit;
+
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // only user role = propertyOwener is allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+            console.log(" user id", user._id);
+
+            //  find all owner property
+            const allProperties = await Property.find({ ownerId: user._id, verificationStatus, type }).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+            if (allProperties) {
+                res.status(200).json({
+                    success: true,
+                    message: "Fetch all owner property",
+                    allProperties,
+                    isAccessTokenExp,
+                    accessToken: isAccessTokenExp ? newAccessToken : null,
+                    refreshToken: newRefreshToken ? newRefreshToken : null
+                })
+            }
+        }
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid req.body", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
 
 // find all verified properties with pagination with particular city  no user login is required
 
@@ -1030,5 +1187,7 @@ export {
     allVerifiedPropertyWithPagination,
     allVerifiedPropertyWithPaginationWithType,
     allVerifiedPropertyWithCityWithPagination,
-    allVerifiedPropertyWithCityAndTypeWithPagination
+    allVerifiedPropertyWithCityAndTypeWithPagination,
+    getOwnerPropertyByVerificationStatusAndTypeWithPagination,
+    getOwnerPropertyByVerificationStatusWithPagination
 };

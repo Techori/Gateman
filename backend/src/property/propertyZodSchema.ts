@@ -225,6 +225,17 @@ const pageAndLimitCityAndTypeSchema = z.object({
     city: z.string().min(1, " city is required"),
     type: z.string().min(1, "property type is required")
 })
+const propertyStausSchema = z.object({
+    verificationStatus: z.enum(["verified", "notVerified", "pending"]).default("pending"),
+    page: z.number().positive(),
+    limit: z.number().positive(),
+})
+const propertyStausSchemawithType = z.object({
+    verificationStatus: z.enum(["verified", "notVerified", "pending"]).default("pending"),
+    page: z.number().positive(),
+    limit: z.number().positive(),
+    type: z.string().min(1, "property type is required")
+})
 
 export {
     createPropertySchema,
@@ -234,5 +245,7 @@ export {
     pageAndLimitSchema,
     pageAndLimitTypeSchema,
     pageAndLimitCitySchema,
-    pageAndLimitCityAndTypeSchema
+    pageAndLimitCityAndTypeSchema,
+    propertyStausSchema,
+    propertyStausSchemawithType
 };
