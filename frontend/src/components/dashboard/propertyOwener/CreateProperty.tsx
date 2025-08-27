@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { z } from "zod";
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,8 +23,9 @@ import type { AxiosError } from 'axios';
 import { deleteUser, updateAccessToken } from '@/features/auth/authSlice';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
+import { toast, ToastContainer } from "react-toastify";
 
-// Updated Zod Schema to match new backend structure
+// Updated Zod Schema to match new backend structure with explicit number transformations
 const timeSlotSchema = z.object({
   day: z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
   startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:MM format"),
@@ -36,12 +37,12 @@ const timeSlotSchema = z.object({
 });
 
 const pricingSchema = z.object({
-  hourlyRate: z.coerce.number().positive().optional(),
-  dailyRate: z.coerce.number().positive().optional(),
-  weeklyRate: z.coerce.number().positive().optional(),
-  monthlyRate: z.coerce.number().positive().optional(),
-  cleaningFee: z.coerce.number().min(0).default(0),
-  overtimeHourlyRate: z.coerce.number().positive().optional()
+  hourlyRate: z.number().positive().optional(),
+  dailyRate: z.number().positive().optional(),
+  weeklyRate: z.number().positive().optional(),
+  monthlyRate: z.number().positive().optional(),
+  cleaningFee: z.number().min(0).default(0),
+  overtimeHourlyRate: z.number().positive().optional()
 }).refine(data => {
   return data.hourlyRate || data.dailyRate || data.weeklyRate || data.monthlyRate;
 }, {
@@ -59,20 +60,19 @@ const policiesSchema = z.object({
 
 const locationSchema = z.object({
   nearestMetroStation: z.string().trim().optional(),
-  distanceFromMetro: z.coerce.number().min(0).max(50).optional(),
+  distanceFromMetro: z.number().min(0).max(50).optional(),
   nearestBusStop: z.string().trim().optional(),
-  distanceFromBusStop: z.coerce.number().min(0).max(10).optional(),
+  distanceFromBusStop: z.number().min(0).max(10).optional(),
   nearestRailwayStation: z.string().trim().optional(),
-  distanceFromRailway: z.coerce.number().min(0).max(100).optional()
+  distanceFromRailway: z.number().min(0).max(100).optional()
 });
 
 const bookingRulesSchema = z.object({
-  minBookingHours: z.coerce.number().min(1).max(24).default(1),
-  maxBookingHours: z.coerce.number().min(1).max(1728).default(24),
-  bufferHours: z.coerce.number().min(0).max(4).default(0.5),
+  minBookingHours: z.number().min(1).max(24).default(1),
+  maxBookingHours: z.number().min(1).max(1728).default(24),
+  bufferHours: z.number().min(0).max(4).default(0.5),
   allowedTimeSlots: z.array(timeSlotSchema).default([]),
-
-  checkoutGracePeriod: z.coerce.number().min(0).max(60).default(15)
+  checkoutGracePeriod: z.number().min(0).max(60).default(15)
 });
 
 const propertySchema = z.object({
@@ -93,7 +93,7 @@ const propertySchema = z.object({
   address: z.string().trim().min(1, "Address is required"),
   city: z.string().trim().min(1, "City is required"),
   state: z.string().trim().min(1, "State is required"),
-  pincode: z.coerce.number()
+  pincode: z.number()
     .int("Pincode must be an integer")
     .min(100000, "Invalid pincode")
     .max(999999, "Invalid pincode"),
@@ -101,15 +101,15 @@ const propertySchema = z.object({
   googleMapLink: z.string().url("Invalid URL format").optional().or(z.literal("")),
   
   // Property Details
-  floorSize: z.coerce.number().positive("Floor size must be greater than 0"),
-  totalFloor: z.coerce.number().int("Total floors must be an integer").min(1, "Must have at least 1 floor"),
-  totalArea: z.coerce.number().positive("Total area must be greater than 0").optional(),
-  seatingCapacity: z.coerce.number().int("Seating capacity must be an integer").min(1, "Must have at least 1 seat"),
+  floorSize: z.number().positive("Floor size must be greater than 0"),
+  totalFloor: z.number().int("Total floors must be an integer").min(1, "Must have at least 1 floor"),
+  totalArea: z.number().positive("Total area must be greater than 0").optional(),
+  seatingCapacity: z.number().int("Seating capacity must be an integer").min(1, "Must have at least 1 seat"),
   furnishingLevel: z.string().trim().optional(),
   
   // Pricing Information (Legacy - still required for backend compatibility)
-  cost: z.coerce.number().positive("Cost must be greater than 0"),
-  totalCostPerSeat: z.coerce.number().positive("Cost per seat must be greater than 0"),
+  cost: z.number().positive("Cost must be greater than 0"),
+  totalCostPerSeat: z.number().positive("Cost per seat must be greater than 0"),
   isPriceNegotiable: z.boolean().default(false),
   
   // Operating Hours
@@ -133,6 +133,41 @@ interface ErrorResponse {
   message: string;
 }
 
+// Transform function to handle form data conversion
+const transformFormData = (data: any): PropertyFormData => {
+  return {
+    ...data,
+    pincode: Number(data.pincode),
+    floorSize: Number(data.floorSize),
+    totalFloor: Number(data.totalFloor),
+    totalArea: data.totalArea ? Number(data.totalArea) : undefined,
+    seatingCapacity: Number(data.seatingCapacity),
+    cost: Number(data.cost),
+    totalCostPerSeat: Number(data.totalCostPerSeat),
+    pricing: {
+      hourlyRate: data.pricing.hourlyRate ? Number(data.pricing.hourlyRate) : undefined,
+      dailyRate: data.pricing.dailyRate ? Number(data.pricing.dailyRate) : undefined,
+      weeklyRate: data.pricing.weeklyRate ? Number(data.pricing.weeklyRate) : undefined,
+      monthlyRate: data.pricing.monthlyRate ? Number(data.pricing.monthlyRate) : undefined,
+      cleaningFee: Number(data.pricing.cleaningFee || 0),
+      overtimeHourlyRate: data.pricing.overtimeHourlyRate ? Number(data.pricing.overtimeHourlyRate) : undefined
+    },
+    location: {
+      ...data.location,
+      distanceFromMetro: data.location.distanceFromMetro ? Number(data.location.distanceFromMetro) : undefined,
+      distanceFromBusStop: data.location.distanceFromBusStop ? Number(data.location.distanceFromBusStop) : undefined,
+      distanceFromRailway: data.location.distanceFromRailway ? Number(data.location.distanceFromRailway) : undefined
+    },
+    bookingRules: {
+      ...data.bookingRules,
+      minBookingHours: Number(data.bookingRules.minBookingHours || 1),
+      maxBookingHours: Number(data.bookingRules.maxBookingHours || 24),
+      bufferHours: Number(data.bookingRules.bufferHours || 0.5),
+      checkoutGracePeriod: Number(data.bookingRules.checkoutGracePeriod || 15)
+    }
+  };
+};
+
 const CreateProperty = () => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [newAmenity, setNewAmenity] = useState('');
@@ -148,7 +183,7 @@ const CreateProperty = () => {
     setValue,
     formState: { errors },
     reset,
-  } = useForm<PropertyFormData>({
+  } = useForm({
     resolver: zodResolver(propertySchema),
     defaultValues: {
       isSaturdayOpened: true,
@@ -160,11 +195,11 @@ const CreateProperty = () => {
         cleaningFee: 0
       },
       policies: {
-        guestPolicy: "with_permission",
+        guestPolicy: "with_permission" as const,
         eventHostingAllowed: false,
-        smokingPolicy: "not_allowed",
-        petPolicy: "not_allowed",
-        foodAndBeveragePolicy: "outside_food_not_allowed"
+        smokingPolicy: "not_allowed" as const,
+        petPolicy: "not_allowed" as const,
+        foodAndBeveragePolicy: "outside_food_not_allowed" as const
       },
       location: {},
       bookingRules: {
@@ -172,7 +207,6 @@ const CreateProperty = () => {
         maxBookingHours: 24,
         bufferHours: 0.5,
         allowedTimeSlots: [],
-        
         checkoutGracePeriod: 15
       }
     },
@@ -182,7 +216,8 @@ const CreateProperty = () => {
     mutationFn: createProperty,
     onSuccess: (response) => {
       console.log("API response data", response);
-      alert('Property created successfully!');
+      
+      toast.success(response.message, { position: "top-right" });
       reset();
       setSelectedImages([]);
       // update access and refresh token
@@ -213,7 +248,7 @@ const CreateProperty = () => {
     onError: async(err: AxiosError<ErrorResponse>) => {
       console.log('Error creating property:', err);
       const message = err.response?.data?.message || 'Failed to create property. Please try again.';
-      alert(message);
+      toast.error(message);
       // logout user if token exprie
       if (err.response?.status === 401) {
         console.log("err.response?.status :", err.response?.status);
@@ -348,15 +383,19 @@ const CreateProperty = () => {
     setValue('bookingRules.allowedTimeSlots', watchedTimeSlots.filter((_, i) => i !== index));
   };
 
-  // Fix the onSubmit function with proper typing
-  const onSubmit: SubmitHandler<PropertyFormData> = (data) => {
-    console.log("Form data", data);
+  // Fix the onSubmit function with proper typing and transformation
+  const onSubmit = (rawData: PropertyFormData) => {
+    console.log("Raw form data", rawData);
     
     if (selectedImages.length === 0) {
         alert('Please upload at least one property image');
         return;
     }
 
+    // Transform and validate the data
+    const data = transformFormData(rawData);
+    console.log("Transformed form data", data);
+    
     const formData = new FormData();
     
     // Append all form fields
@@ -368,14 +407,12 @@ const CreateProperty = () => {
         } else if (key === 'pricing' || key === 'policies' || key === 'location') {
             formData.append(key, JSON.stringify(value));
         } else if (key === 'bookingRules') {
-            // Now TypeScript knows that data.bookingRules exists and has the correct type
             const bookingRulesData = {
-                minBookingHours: data.bookingRules.minBookingHours || 1,
-                maxBookingHours: data.bookingRules.maxBookingHours || 24,
-                bufferHours: data.bookingRules.bufferHours || 0.5,
-                allowedTimeSlots: data.bookingRules.allowedTimeSlots || [],
-                
-                checkoutGracePeriod: data.bookingRules.checkoutGracePeriod || 15
+                minBookingHours: data.bookingRules.minBookingHours,
+                maxBookingHours: data.bookingRules.maxBookingHours,
+                bufferHours: data.bookingRules.bufferHours,
+                allowedTimeSlots: data.bookingRules.allowedTimeSlots,
+                checkoutGracePeriod: data.bookingRules.checkoutGracePeriod
             };
             console.log('Sending bookingRules:', bookingRulesData);
             formData.append(key, JSON.stringify(bookingRulesData));
@@ -397,6 +434,7 @@ const CreateProperty = () => {
 
     mutation.mutate(formData);
   };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -569,7 +607,7 @@ const CreateProperty = () => {
                   <Input
                     id="pincode"
                     type="number"
-                    {...register('pincode')}
+                    {...register('pincode', { valueAsNumber: true })}
                     placeholder="Enter 6-digit pincode"
                   />
                   {errors.pincode && (
@@ -628,7 +666,7 @@ const CreateProperty = () => {
                     step="0.1"
                     min="0"
                     max="50"
-                    {...register('location.distanceFromMetro')}
+                    {...register('location.distanceFromMetro', { valueAsNumber: true })}
                     placeholder="Distance in kilometers"
                   />
                 </div>
@@ -650,7 +688,7 @@ const CreateProperty = () => {
                     step="0.1"
                     min="0"
                     max="10"
-                    {...register('location.distanceFromBusStop')}
+                    {...register('location.distanceFromBusStop', { valueAsNumber: true })}
                     placeholder="Distance in kilometers"
                   />
                 </div>
@@ -672,7 +710,7 @@ const CreateProperty = () => {
                     step="0.1"
                     min="0"
                     max="100"
-                    {...register('location.distanceFromRailway')}
+                    {...register('location.distanceFromRailway', { valueAsNumber: true })}
                     placeholder="Distance in kilometers"
                   />
                 </div>
@@ -696,7 +734,7 @@ const CreateProperty = () => {
                     id="floorSize"
                     type="number"
                     min="1"
-                    {...register('floorSize')}
+                    {...register('floorSize', { valueAsNumber: true })}
                     placeholder="Enter floor size"
                   />
                   {errors.floorSize && (
@@ -710,7 +748,7 @@ const CreateProperty = () => {
                     id="totalFloor"
                     type="number"
                     min="1"
-                    {...register('totalFloor')}
+                    {...register('totalFloor', { valueAsNumber: true })}
                     placeholder="Enter total floors"
                   />
                   {errors.totalFloor && (
@@ -724,7 +762,7 @@ const CreateProperty = () => {
                     id="totalArea"
                     type="number"
                     min="1"
-                    {...register('totalArea')}
+                    {...register('totalArea', { valueAsNumber: true })}
                     placeholder="Enter total area"
                   />
                   {errors.totalArea && (
@@ -738,7 +776,7 @@ const CreateProperty = () => {
                     id="seatingCapacity"
                     type="number"
                     min="1"
-                    {...register('seatingCapacity')}
+                    {...register('seatingCapacity', { valueAsNumber: true })}
                     placeholder="Enter seating capacity"
                   />
                   {errors.seatingCapacity && (
@@ -783,7 +821,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.hourlyRate')}
+                    {...register('pricing.hourlyRate', { valueAsNumber: true })}
                     placeholder="Enter hourly rate"
                   />
                 </div>
@@ -795,7 +833,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.dailyRate')}
+                    {...register('pricing.dailyRate', { valueAsNumber: true })}
                     placeholder="Enter daily rate"
                   />
                 </div>
@@ -807,7 +845,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.weeklyRate')}
+                    {...register('pricing.weeklyRate', { valueAsNumber: true })}
                     placeholder="Enter weekly rate"
                   />
                 </div>
@@ -819,7 +857,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.monthlyRate')}
+                    {...register('pricing.monthlyRate', { valueAsNumber: true })}
                     placeholder="Enter monthly rate"
                   />
                 </div>
@@ -831,7 +869,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.cleaningFee')}
+                    {...register('pricing.cleaningFee', { valueAsNumber: true })}
                     placeholder="Enter cleaning fee (default: 0)"
                   />
                 </div>
@@ -843,7 +881,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    {...register('pricing.overtimeHourlyRate')}
+                    {...register('pricing.overtimeHourlyRate', { valueAsNumber: true })}
                     placeholder="Enter overtime rate (optional)"
                   />
                 </div>
@@ -855,7 +893,6 @@ const CreateProperty = () => {
 
               {/* Legacy Pricing Fields - Still required for backend compatibility */}
               <div className="border-t pt-4">
-                {/* <h4 className="text-sm font-medium text-gray-700 mb-3">Legacy Pricing (Required for compatibility)</h4> */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cost">Total Cost *</Label>
@@ -864,7 +901,7 @@ const CreateProperty = () => {
                       type="number"
                       min="0"
                       step="0.01"
-                      {...register('cost')}
+                      {...register('cost', { valueAsNumber: true })}
                       placeholder="Enter total cost"
                     />
                     {errors.cost && (
@@ -879,7 +916,7 @@ const CreateProperty = () => {
                       type="number"
                       min="0"
                       step="0.01"
-                      {...register('totalCostPerSeat')}
+                      {...register('totalCostPerSeat', { valueAsNumber: true })}
                       placeholder="Enter cost per seat"
                     />
                     {errors.totalCostPerSeat && (
@@ -918,7 +955,7 @@ const CreateProperty = () => {
                     type="number"
                     min="1"
                     max="24"
-                    {...register('bookingRules.minBookingHours')}
+                    {...register('bookingRules.minBookingHours', { valueAsNumber: true })}
                     placeholder="Minimum hours"
                   />
                 </div>
@@ -930,7 +967,7 @@ const CreateProperty = () => {
                     type="number"
                     min="1"
                     max="1728"
-                    {...register('bookingRules.maxBookingHours')}
+                    {...register('bookingRules.maxBookingHours', { valueAsNumber: true })}
                     placeholder="Maximum hours"
                   />
                 </div>
@@ -943,12 +980,10 @@ const CreateProperty = () => {
                     min="0"
                     max="4"
                     step="0.25"
-                    {...register('bookingRules.bufferHours')}
+                    {...register('bookingRules.bufferHours', { valueAsNumber: true })}
                     placeholder="Buffer time (0.5 = 30min)"
                   />
                 </div>
-
-                
 
                 <div className="space-y-2">
                   <Label htmlFor="checkoutGracePeriod">Checkout Grace Period (min)</Label>
@@ -957,7 +992,7 @@ const CreateProperty = () => {
                     type="number"
                     min="0"
                     max="60"
-                    {...register('bookingRules.checkoutGracePeriod')}
+                    {...register('bookingRules.checkoutGracePeriod', { valueAsNumber: true })}
                     placeholder="Grace period in minutes"
                   />
                 </div>
@@ -1312,6 +1347,7 @@ const CreateProperty = () => {
           </div>
         </form>
       </div>
+      <ToastContainer/>
     </div>
   );
 };
