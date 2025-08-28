@@ -20,6 +20,8 @@ import {
     forgotPasswordSendOtp,
     resetPasswordWithOtp,
     changePasswordAndLogoutOthers,
+    createEmployee,
+    logoutUserBySessionId,
 } from "./userController.js";
 
 const userRouter = express.Router();
@@ -74,5 +76,11 @@ userRouter.post("/forgot-password/reset", resetPasswordWithOtp);
 
 // Force logout route (can be used by admin or for password reset scenarios)
 userRouter.post("/force-logout", forecedLogoutAllDevices); // Note: This one doesn't require auth as it's for emergency situations
+
+// user logout by userid and sessionId
+userRouter.post('/logoutUserBySessionId',logoutUserBySessionId)
+
+// route for create employee for property owerner role
+userRouter.post("/createEmployee", authenticate, createEmployee);
 
 export default userRouter;

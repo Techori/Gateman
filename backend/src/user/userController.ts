@@ -4,6 +4,7 @@ import { z, ZodError } from "zod";
 import type { AuthRequest } from "../middleware/authMiddleware.js";
 import {
     changePasswordSchema,
+    createEmployeeSchema,
     createUserSchema,
     forceLogoutSchema,
     forgotPasswordSendOtpSchema,
@@ -110,6 +111,138 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     }
 };
 
+const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+
+        // Validate request body
+        const validateUser = createEmployeeSchema.parse(req.body);
+        const { email, name, password, phoneNumber, role } = validateUser;
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            const err = createHttpError(404, "User not found");
+            return next(err);
+        }
+
+        // Check if user has proper role to create employees
+        if (user.role !== "propertyOwener") {
+            const err = createHttpError(403, "You are not allowed to create employee");
+            return next(err);
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            const err = createHttpError(401, "Invalid or expired session");
+            return next(err);
+        }
+
+        // Check if employee already exists in database
+        const isValidEmployee = await User.findOne({ email });
+        if (isValidEmployee) {
+            const err = createHttpError(409, `Employee is already registered with email ${email}`);
+            return next(err);
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+        }
+
+        // Create new employee
+        const newEmployee = await User.create({
+            name,
+            email,
+            password,
+            isEmailVerify: false,
+            isLogin: false,
+            phoneNumber,
+            sessions: [],
+            role,
+            status: "active",
+            otp: 0,
+            otpExpiresAt: Date.now(),
+
+        });
+
+        if (newEmployee) {
+            console.log("newEmployee created:", newEmployee._id);
+
+            // Prepare response
+            const responseData: any = {
+                success: true,
+                message: "Employee registered successfully",
+                employee: {
+                    id: newEmployee._id,
+                    name: newEmployee.name,
+                    email: newEmployee.email,
+                    role: newEmployee.role,
+                    phoneNumber: newEmployee.phoneNumber,
+                    status: newEmployee.status,
+                    createdAt: newEmployee.createdAt
+                }
+            };
+
+            // Include new tokens if access token was expired
+            if (isAccessTokenExp && newAccessToken) {
+                responseData.tokenUpdate = {
+                    newAccessToken,
+                    message: "Access token was refreshed"
+                };
+
+                if (newRefreshToken) {
+                    responseData.tokenUpdate.newRefreshToken = newRefreshToken;
+                    responseData.tokenUpdate.message += " and session was extended";
+                }
+            }
+            res.status(201).json({
+                success: true,
+                message: "Employee registered successfully",
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: newRefreshToken ? newRefreshToken : null
+            });
+
+
+        }
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            const err = createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            });
+            next(err);
+        } else {
+            console.error("Create Employee Error:", error);
+            const err = createHttpError(
+                500,
+                "Internal server error while creating employee"
+            );
+            next(err);
+        }
+    }
+};
+
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const isValidUser = loginUserSchema.parse(req.body);
@@ -203,6 +336,55 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
         }
     }
 };
+
+const logoutUserBySessionId = async (req: Request, res: Response, next: NextFunction) => {
+    const { id, sessionId } = req.body
+    if (!id) {
+        const err = createHttpError(
+            400,
+            "Id is required"
+        );
+        next(err);
+    }
+    if (!sessionId) {
+        const err = createHttpError(
+            400,
+            "sessionId is required"
+        );
+        next(err);
+    }
+    try {
+        const user = await User.findById(id).select("-password");
+
+        if (!user) {
+            const err = createHttpError(404, "User not found");
+            return next(err);
+        }
+        
+        const isvalidSession = user.isSessionValid(sessionId)
+        if(!isvalidSession){
+            const err = createHttpError(404, "sessionId not found");
+            return next(err);
+        }
+        // Remove specific session
+        const sessionRemoved = user.removeSession(sessionId);
+
+        if (!sessionRemoved) {
+            const err = createHttpError(404, "Session not found");
+            return next(err);
+        }
+
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({
+            success: true,
+            message: "User logged out successfully from this device",
+            remainingSessions: user.getSessionCount(),
+        });
+    } catch (error) {
+
+    }
+}
 
 const logoutUser = async (req: Request, res: Response, next: NextFunction) => {
     const _req = req as AuthRequest;
@@ -1379,4 +1561,6 @@ export {
     changePassword,
     resetPasswordWithOtp,
     changePasswordAndLogoutOthers,
+    createEmployee,
+    logoutUserBySessionId
 };
