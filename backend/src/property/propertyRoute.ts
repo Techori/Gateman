@@ -17,7 +17,8 @@ import {
     allVerifiedPropertyWithCityAndTypeWithPagination,
     getOwnerPropertyByVerificationStatusAndTypeWithPagination,
     getOwnerPropertyByVerificationStatusWithPagination,
-    getOwnerPropertyByCityNameWithPagination
+    getOwnerPropertyByCityNameWithPagination,
+    getOwnerPropertyByCityAndTypeWithPagination
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -64,15 +65,16 @@ propertyRoute.get("/user/my-properties", authenticate, getUserProperties);
 // Admin routes (admin authentication required)
 // Get all properties for admin role
 propertyRoute.get("/admin/all", authenticate, getAllPropertiesForAdminRole);
-
+// limit must be under 50
 // Get ALL property of property owner only access by (role:property owner)
 propertyRoute.post("/owner/all-properties", authenticate, allPropertyOfOwner);
 propertyRoute.post("/owner/all-properties-byType", authenticate, getAllPropertyOfOwnerByType);
 propertyRoute.post("/owner/all-properties-byTypeAndVerificationStatus", authenticate, getOwnerPropertyByVerificationStatusAndTypeWithPagination);
 propertyRoute.post("/owner/all-properties-byVerificationStatus", authenticate, getOwnerPropertyByVerificationStatusWithPagination);
 propertyRoute.post("/owner/all-properties-byCityName", authenticate, getOwnerPropertyByCityNameWithPagination);
+propertyRoute.post("/owner/all-properties-byCityNameAndType", authenticate, getOwnerPropertyByCityAndTypeWithPagination);
 
-// for user /client no auth is required
+// for user /client no auth is required limit must be under 50
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
 propertyRoute.post("/client/all-verified-properties-with-type", allVerifiedPropertyWithPaginationWithType);
 propertyRoute.post("/client/all-verified-properties-with-city", allVerifiedPropertyWithCityWithPagination);
