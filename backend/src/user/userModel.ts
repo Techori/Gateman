@@ -4,6 +4,30 @@ import bcrypt from "bcryptjs";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { v4 as uuidv4 } from "uuid";
 
+
+// Employee schema 
+const employeeSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+    },
+    propertyOwnerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true
+    },
+    propertyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Property",
+        required: true
+    },
+    assignedAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { timestamps: true })
+
 // Session interface for individual sessions
 
 const sessionSchema = new mongoose.Schema<UserSession>(
@@ -87,6 +111,10 @@ const userSchema = new mongoose.Schema<Users>(
                 },
                 message: "Maximum 5 active sessions allowed",
             },
+        },
+        employeeDetails: {
+            type: employeeSchema,
+            default: null,
         },
 
         isLogin: {
