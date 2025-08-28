@@ -40,6 +40,7 @@ export interface Users {
         session?: UserSession;
     };
     getActiveSessions(): UserSession[];
+    employeeDetails:EmployeeDetails;
     getSessionCount(): number;
     cleanExpiredSessions(): number;
 
@@ -62,4 +63,13 @@ export interface UserSession {
     createdAt: Date;
     expiresAt: Date;
     lastActiveAt: Date;
+}
+
+export interface EmployeeDetails {
+    _id: string;
+    userId:string;
+    propertyId: string;
+    propertyOwnerId: string; // User ID of the person who assigned the employee
+    assignedAt: Date;
+    
 }

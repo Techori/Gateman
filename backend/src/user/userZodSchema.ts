@@ -35,6 +35,7 @@ const createEmployeeSchema = z.object({
         .string()
         .trim()
         .min(6, { message: "Must be 6 or more characters long" }),
+        
 })
 
 const loginUserSchema = z.object({
