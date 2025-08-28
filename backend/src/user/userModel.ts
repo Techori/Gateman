@@ -7,11 +7,6 @@ import { v4 as uuidv4 } from "uuid";
 
 // Employee schema 
 const employeeSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
     propertyOwnerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -26,7 +21,10 @@ const employeeSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-}, { timestamps: true })
+}, { 
+    timestamps: true,
+    _id: false  
+})
 
 // Session interface for individual sessions
 

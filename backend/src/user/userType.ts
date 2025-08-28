@@ -66,10 +66,7 @@ export interface UserSession {
 }
 
 export interface EmployeeDetails {
-    _id: string;
-    userId:string;
     propertyId: string;
     propertyOwnerId: string; // User ID of the person who assigned the employee
     assignedAt: Date;
-    
 }

@@ -111,6 +111,138 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     }
 };
 
+// const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
+//     try {
+//         const _req = req as AuthRequest;
+//         const { _id, sessionId, isAccessTokenExp } = _req;
+
+//         // Validate request body
+//         const validateUser = createEmployeeSchema.parse(req.body);
+//         const { email, name, password, phoneNumber, role } = validateUser;
+
+//         // Find the current user (property owner)
+//         const user = await User.findById(_id).select("-password");
+//         if (!user) {
+//             const err = createHttpError(404, "User not found");
+//             return next(err);
+//         }
+
+//         // Check if user has proper role to create employees
+//         if (user.role !== "propertyOwener") {
+//             const err = createHttpError(403, "You are not allowed to create employee");
+//             return next(err);
+//         }
+
+//         // Validate session
+//         if (!user.isSessionValid(sessionId)) {
+//             const err = createHttpError(401, "Invalid or expired session");
+//             return next(err);
+//         }
+
+//         // Check if employee already exists in database
+//         const isValidEmployee = await User.findOne({ email });
+//         if (isValidEmployee) {
+//             const err = createHttpError(409, `Employee is already registered with email ${email}`);
+//             return next(err);
+//         }
+
+//         // Handle access token expiration and session update
+//         let newAccessToken = null;
+//         let newRefreshToken = null;
+
+//         if (isAccessTokenExp) {
+//             // Update session activity (this may extend the session and generate new refresh token)
+//             const updateResult = user.updateSessionActivity(sessionId);
+
+//             // Generate new access token
+//             newAccessToken = user.generateAccessToken(sessionId);
+
+//             // If session was extended, we get a new refresh token
+//             if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+//                 newRefreshToken = updateResult.newRefreshToken;
+//             }
+
+//             // Save user with updated session
+//             await user.save({ validateBeforeSave: false });
+//         }
+
+//         // Create new employee
+//         const newEmployee = await User.create({
+//             name,
+//             email,
+//             password,
+//             isEmailVerify: false,
+//             isLogin: false,
+//             phoneNumber,
+//             sessions: [],
+//             role,
+//             status: "active",
+//             otp: 0,
+//             otpExpiresAt: Date.now(),
+
+//         });
+
+//         if (newEmployee) {
+//             console.log("newEmployee created:", newEmployee._id);
+
+//             // Prepare response
+//             const responseData: any = {
+//                 success: true,
+//                 message: "Employee registered successfully",
+//                 employee: {
+//                     id: newEmployee._id,
+//                     name: newEmployee.name,
+//                     email: newEmployee.email,
+//                     role: newEmployee.role,
+//                     phoneNumber: newEmployee.phoneNumber,
+//                     status: newEmployee.status,
+//                     createdAt: newEmployee.createdAt
+//                 }
+//             };
+
+//             // Include new tokens if access token was expired
+//             if (isAccessTokenExp && newAccessToken) {
+//                 responseData.tokenUpdate = {
+//                     newAccessToken,
+//                     message: "Access token was refreshed"
+//                 };
+
+//                 if (newRefreshToken) {
+//                     responseData.tokenUpdate.newRefreshToken = newRefreshToken;
+//                     responseData.tokenUpdate.message += " and session was extended";
+//                 }
+//             }
+//             res.status(201).json({
+//                 success: true,
+//                 message: "Employee registered successfully",
+//                 isAccessTokenExp,
+//                 accessToken: isAccessTokenExp ? newAccessToken : null,
+//                 refreshToken: newRefreshToken ? newRefreshToken : null
+//             });
+
+
+//         }
+
+//     } catch (error) {
+//         if (error instanceof ZodError) {
+//             const err = createHttpError(400, {
+//                 message: {
+//                     type: "Validation error",
+//                     zodError: error.issues,
+//                 },
+//             });
+//             next(err);
+//         } else {
+//             console.error("Create Employee Error:", error);
+//             const err = createHttpError(
+//                 500,
+//                 "Internal server error while creating employee"
+//             );
+//             next(err);
+//         }
+//     }
+// };
+
 const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const _req = req as AuthRequest;
@@ -118,7 +250,7 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
 
         // Validate request body
         const validateUser = createEmployeeSchema.parse(req.body);
-        const { email, name, password, phoneNumber, role } = validateUser;
+        const { email, name, password, phoneNumber, role, propertyId } = validateUser;
 
         // Find the current user (property owner)
         const user = await User.findById(_id).select("-password");
@@ -166,7 +298,7 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
             await user.save({ validateBeforeSave: false });
         }
 
-        // Create new employee
+        // Create new employee with employeeDetails
         const newEmployee = await User.create({
             name,
             email,
@@ -179,10 +311,15 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
             status: "active",
             otp: 0,
             otpExpiresAt: Date.now(),
-
+            employeeDetails: {
+                propertyOwnerId: _id,
+                propertyId: propertyId,
+                assignedAt: new Date()
+            }
         });
 
         if (newEmployee) {
+
             console.log("newEmployee created:", newEmployee._id);
 
             // Prepare response
@@ -196,7 +333,12 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
                     role: newEmployee.role,
                     phoneNumber: newEmployee.phoneNumber,
                     status: newEmployee.status,
-                    createdAt: newEmployee.createdAt
+                    createdAt: newEmployee.createdAt,
+                    employeeDetails: {
+                        propertyOwnerId: newEmployee.employeeDetails.propertyOwnerId,
+                        propertyId: newEmployee.employeeDetails.propertyId,
+                        assignedAt: newEmployee.employeeDetails.assignedAt
+                    }
                 }
             };
 
@@ -212,15 +354,15 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
                     responseData.tokenUpdate.message += " and session was extended";
                 }
             }
+
             res.status(201).json({
                 success: true,
                 message: "Employee registered successfully",
+                employee: responseData.employee,
                 isAccessTokenExp,
                 accessToken: isAccessTokenExp ? newAccessToken : null,
                 refreshToken: newRefreshToken ? newRefreshToken : null
             });
-
-
         }
 
     } catch (error) {
@@ -242,7 +384,6 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
         }
     }
 };
-
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const isValidUser = loginUserSchema.parse(req.body);
