@@ -4,7 +4,9 @@ import {
     initiateWalletTopup, 
     handleTopupSuccess, 
     handleTopupFailure,
-    getTransactionHistory 
+    getTransactionHistory,
+    handleCashfreeTopupWebhook,
+    verifyCashfreeTopupPayment
 } from "./walletController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -24,5 +26,9 @@ router.post("/topup/success", handleTopupSuccess);
 
 // Handle topup failure callback (from payment gateway)
 router.post("/topup/failure", handleTopupFailure);
+
+// Cashfree specific endpoints for wallet topup
+router.post("/topup/cashfree/webhook", handleCashfreeTopupWebhook);
+router.post("/topup/cashfree/verify", authMiddleware, verifyCashfreeTopupPayment);
 
 export default router;

@@ -4,6 +4,7 @@ import type { WalletTopupRequest, WalletPaymentResponse, TopupResponse } from ".
 import { config } from "../config/index.js";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
+import axios from "axios";
 
 // Constants
 const MIN_TOPUP_AMOUNT = 200;
@@ -18,6 +19,17 @@ const easebuzzConfig = {
     baseUrl: {
         test: 'https://testpay.easebuzz.in',
         prod: 'https://pay.easebuzz.in'
+    }
+};
+
+// Cashfree configuration
+const cashfreeConfig = {
+    appId: config.CASHFREE_APP_ID,
+    secretKey: config.CASHFREE_SECRET_KEY,
+    env: config.CASHFREE_ENV,
+    baseUrl: {
+        test: 'https://sandbox.cashfree.com/pg',
+        prod: 'https://api.cashfree.com/pg'
     }
 };
 
@@ -45,6 +57,19 @@ const generateTransactionId = () => {
 const generateEasebuzzHash = (data: any) => {
     const hashString = `${data.key}|${data.txnid}|${data.amount}|${data.productinfo}|${data.firstname}|${data.email}|||||||||||${easebuzzConfig.salt}`;
     return crypto.createHash('sha512').update(hashString).digest('hex');
+};
+
+const getCashfreeHeaders = () => ({
+    'X-Client-Id': cashfreeConfig.appId,
+    'X-Client-Secret': cashfreeConfig.secretKey,
+    'X-API-Version': '2023-08-01',
+    'Content-Type': 'application/json'
+});
+
+const getCashfreeBaseURL = () => {
+    return cashfreeConfig.env === 'PROD' 
+        ? cashfreeConfig.baseUrl.prod 
+        : cashfreeConfig.baseUrl.test;
 };
 
 // Get wallet balance and transaction history
@@ -154,6 +179,58 @@ export const initiateWalletTopup = async (req: Request, res: Response, next: Nex
                 paymentData,
                 method: 'POST'
             };
+        } else if (paymentMethod === 'cashfree') {
+            try {
+                const orderData = {
+                    order_amount: amounts.finalAmount,
+                    order_currency: "INR",
+                    order_id: transactionId,
+                    customer_details: {
+                        customer_id: userId,
+                        customer_name: user.name,
+                        customer_email: user.email,
+                        customer_phone: user.phoneNumber,
+                    },
+                    order_meta: {
+                        return_url: `${config.frontendDomain}/wallet/topup/success`,
+                        notify_url: `${config.frontendDomain}/api/v1/wallet/topup/cashfree/webhook`,
+                    },
+                    order_note: `Wallet Topup - ₹${amounts.originalAmount} (10% discount applied)`,
+                    order_tags: {
+                        wallet_topup: "true",
+                        user_id: userId,
+                        original_amount: amounts.originalAmount.toString(),
+                        discount_amount: amounts.discountAmount.toString(),
+                        gst_amount: amounts.gstAmount.toString()
+                    }
+                };
+
+                const cashfreeResponse = await axios.post(
+                    `${getCashfreeBaseURL()}/orders`,
+                    orderData,
+                    { headers: getCashfreeHeaders() }
+                );
+
+                paymentResponse = {
+                    paymentUrl: cashfreeResponse.data.payment_link,
+                    paymentSessionId: cashfreeResponse.data.payment_session_id,
+                    cfOrderId: cashfreeResponse.data.cf_order_id,
+                    orderStatus: cashfreeResponse.data.order_status,
+                    method: 'REDIRECT'
+                };
+            } catch (cashfreeError: any) {
+                console.error("Cashfree order creation error:", cashfreeError.response?.data || cashfreeError.message);
+                
+                // Remove the pending transaction if Cashfree fails
+                wallet.transactions = wallet.transactions.filter(t => t.transactionId !== transactionId);
+                await wallet.save();
+                
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to create Cashfree payment order",
+                    error: cashfreeError.response?.data || cashfreeError.message
+                });
+            }
         }
 
         const response: TopupResponse = {
@@ -268,6 +345,143 @@ export const handleTopupFailure = async (req: Request, res: Response, next: Next
             success: false,
             message: "Failed to process topup failure",
             error: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+// Handle Cashfree webhook for wallet topup
+export const handleCashfreeTopupWebhook = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const webhookData = req.body;
+        console.log("Cashfree wallet topup webhook received:", webhookData);
+
+        const { type, data } = webhookData;
+        
+        if (type === 'PAYMENT_SUCCESS_WEBHOOK') {
+            const { order } = data;
+            const transactionId = order.order_id;
+            
+            // Find wallet with pending transaction
+            const wallet = await WalletModel.findOne({
+                'transactions.transactionId': transactionId,
+                'transactions.status': 'pending'
+            });
+
+            if (wallet) {
+                const transaction = wallet.transactions.find(t => t.transactionId === transactionId);
+                if (transaction) {
+                    transaction.status = 'completed';
+                    transaction.paymentGatewayResponse = webhookData;
+                    
+                    // Credit the amount to wallet balance
+                    wallet.balance += transaction.amount;
+                    await wallet.save();
+
+                    console.log(`Wallet topup completed via Cashfree: ${transactionId}, Amount: ₹${transaction.amount}`);
+                }
+            }
+        } else if (type === 'PAYMENT_FAILED_WEBHOOK' || type === 'PAYMENT_USER_DROPPED_WEBHOOK') {
+            const { order } = data;
+            const transactionId = order.order_id;
+            
+            // Find wallet with pending transaction
+            const wallet = await WalletModel.findOne({
+                'transactions.transactionId': transactionId,
+                'transactions.status': 'pending'
+            });
+
+            if (wallet) {
+                const transaction = wallet.transactions.find(t => t.transactionId === transactionId);
+                if (transaction) {
+                    transaction.status = 'failed';
+                    transaction.paymentGatewayResponse = webhookData;
+                    await wallet.save();
+
+                    console.log(`Wallet topup failed via Cashfree: ${transactionId}`);
+                }
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Cashfree webhook processed successfully'
+        });
+    } catch (error) {
+        console.error("Cashfree topup webhook error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to process Cashfree webhook",
+            error: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+};
+
+// Verify Cashfree payment for wallet topup
+export const verifyCashfreeTopupPayment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { orderId } = req.body;
+
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "Order ID is required"
+            });
+        }
+
+        // Get order status from Cashfree
+        const response = await axios.get(
+            `${getCashfreeBaseURL()}/orders/${orderId}`,
+            { headers: getCashfreeHeaders() }
+        );
+
+        const orderStatus = response.data.order_status;
+        const isSuccess = orderStatus === 'PAID';
+
+        if (isSuccess) {
+            // Find wallet with pending transaction
+            const wallet = await WalletModel.findOne({
+                'transactions.transactionId': orderId,
+                'transactions.status': 'pending'
+            });
+
+            if (wallet) {
+                const transaction = wallet.transactions.find(t => t.transactionId === orderId);
+                if (transaction) {
+                    transaction.status = 'completed';
+                    transaction.paymentGatewayResponse = response.data;
+                    
+                    // Credit the amount to wallet balance
+                    wallet.balance += transaction.amount;
+                    await wallet.save();
+
+                    return res.status(200).json({
+                        success: true,
+                        message: "Wallet topup completed successfully via Cashfree",
+                        data: {
+                            newBalance: wallet.balance,
+                            amountCredited: transaction.amount,
+                            transactionId: orderId,
+                            paymentStatus: orderStatus
+                        }
+                    });
+                }
+            }
+        }
+
+        res.status(200).json({
+            success: false,
+            message: isSuccess ? "Transaction not found" : "Payment verification failed",
+            data: {
+                transactionId: orderId,
+                paymentStatus: orderStatus
+            }
+        });
+    } catch (error: any) {
+        console.error("Verify Cashfree topup payment error:", error.response?.data || error.message);
+        res.status(500).json({
+            success: false,
+            message: "Failed to verify Cashfree payment",
+            error: error.response?.data || error.message
         });
     }
 };

@@ -69,9 +69,13 @@ export interface TopupResponse {
     data?: {
         paymentUrl?: string;
         paymentData?: any;
+        paymentSessionId?: string;
+        cfOrderId?: string;
+        orderStatus?: string;
         transactionId: string;
         finalAmount: number;
         discountAmount: number;
         gstAmount: number;
+        method?: string;
     };
 }

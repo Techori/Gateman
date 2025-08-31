@@ -436,6 +436,36 @@
                 if (response.success && response.data.paymentUrl) {
                     // In a real app, you would redirect to the payment URL
                     console.log('Redirect to payment URL:', response.data.paymentUrl);
+                    
+                    // For Cashfree, also show verification option
+                    if (paymentMethod === 'cashfree') {
+                        const verifyButton = `<button onclick="verifyCashfreePayment('${response.data.transactionId}')" style="margin-top: 10px;">Verify Cashfree Payment</button>`;
+                        document.getElementById('topupResponse').innerHTML += verifyButton;
+                    }
+                }
+            } catch (error) {
+                showResponse('topupResponse', { error: error.message }, true);
+            }
+        }
+
+        async function verifyCashfreePayment(orderId) {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(`${API_BASE_URL}/wallet/topup/cashfree/verify`, 'POST', {
+                    orderId
+                });
+
+                showResponse('topupResponse', response, !response.success);
+                
+                if (response.success) {
+                    // Refresh wallet balance after successful verification
+                    setTimeout(() => {
+                        getWalletDetails();
+                    }, 1000);
                 }
             } catch (error) {
                 showResponse('topupResponse', { error: error.message }, true);
