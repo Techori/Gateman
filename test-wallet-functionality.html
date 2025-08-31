@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .response-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .response-container pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .wallet-balance {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .wallet-balance h2 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .payment-option {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .payment-option:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .payment-option.selected {
+            border-color: #007bff;
+            background-color: #e7f3ff;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏦 Wallet Functionality Test Suite</h1>
+        <p>Test wallet topup, rental payments, and GST calculations</p>
+    </div>
+
+    <!-- Login Section -->
+    <div class="container">
+        <div class="section">
+            <h3>🔐 Authentication</h3>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="test@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="password123">
+            </div>
+            <button onclick="login()">Login</button>
+            <button onclick="logout()">Logout</button>
+            <div id="authResponse" class="response-container" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Wallet Overview Section -->
+        <div class="container">
+            <div class="section">
+                <h3>💰 Wallet Overview</h3>
+                <div id="walletBalance" class="wallet-balance">
+                    <h2>₹0.00</h2>
+                    <p>Current Balance</p>
+                </div>
+                <button onclick="getWalletDetails()">Refresh Balance</button>
+                <button onclick="getTransactionHistory()">Transaction History</button>
+                <div id="walletResponse" class="response-container" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Wallet Topup Section -->
+        <div class="container">
+            <div class="section">
+                <h3>💳 Wallet Topup (10% Discount + 18% GST)</h3>
+                <div class="info">
+                    <strong>Pricing Logic:</strong><br>
+                    • Minimum topup: ₹200<br>
+                    • 10% discount on wallet topup<br>
+                    • 18% GST on discounted amount<br>
+                    • You get full original amount in wallet
+                </div>
+                <div class="form-group">
+                    <label for="topupAmount">Topup Amount (₹):</label>
+                    <input type="number" id="topupAmount" value="1000" min="200">
+                </div>
+                <div class="form-group">
+                    <label for="paymentMethod">Payment Method:</label>
+                    <select id="paymentMethod">
+                        <option value="easebuzz">Easebuzz</option>
+                        <option value="cashfree">Cashfree</option>
+                    </select>
+                </div>
+                <button onclick="calculateTopupAmount()">Calculate Final Amount</button>
+                <button onclick="initiateWalletTopup()">Initiate Topup</button>
+                <div id="topupCalculation" class="response-container" style="display:none;"></div>
+                <div id="topupResponse" class="response-container" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rental Payment Section -->
+    <div class="container">
+        <div class="section">
+            <h3>🏠 Rental Payment System</h3>
+            <div class="info">
+                <strong>Payment Rules:</strong><br>
+                • Less than 7 days or hourly rentals: Wallet payment preferred<br>
+                • 7+ days rentals: Both wallet and gateway options available<br>
+                • 18% GST included in all payments
+            </div>
+            
+            <div class="grid">
+                <!-- Rental Details -->
+                <div>
+                    <h4>Rental Details</h4>
+                    <div class="form-group">
+                        <label for="rentalAmount">Base Rent Amount (₹):</label>
+                        <input type="number" id="rentalAmount" value="5000">
+                    </div>
+                    <div class="form-group">
+                        <label for="startDate">Start Date:</label>
+                        <input type="datetime-local" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="endDate">End Date:</label>
+                        <input type="datetime-local" id="endDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyName">Property Name:</label>
+                        <input type="text" id="propertyName" value="Test Property">
+                    </div>
+                    <button onclick="calculateRentalAmount()">Calculate Total with GST</button>
+                    <button onclick="checkPaymentOptions()">Check Payment Options</button>
+                </div>
+
+                <!-- Payment Options -->
+                <div>
+                    <h4>Payment Options</h4>
+                    <div id="paymentOptions">
+                        <div class="payment-option" onclick="selectPaymentOption('wallet_only')">
+                            <h5>💰 Wallet Only</h5>
+                            <p>Pay directly from wallet balance</p>
+                        </div>
+                        <div class="payment-option" onclick="selectPaymentOption('gateway_only')">
+                            <h5>💳 Payment Gateway</h5>
+                            <p>Pay via payment gateway</p>
+                        </div>
+                        <div class="payment-option" onclick="selectPaymentOption('auto')">
+                            <h5>🔄 Auto Select</h5>
+                            <p>System chooses best option</p>
+                        </div>
+                    </div>
+                    <button onclick="processRentalPayment()" style="margin-top: 15px;">Process Payment</button>
+                </div>
+            </div>
+            
+            <div id="rentalCalculation" class="response-container" style="display:none;"></div>
+            <div id="paymentOptionsResponse" class="response-container" style="display:none;"></div>
+            <div id="rentalPaymentResponse" class="response-container" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Test Scenarios Section -->
+    <div class="container">
+        <div class="section">
+            <h3>🧪 Test Scenarios</h3>
+            <div class="grid">
+                <div>
+                    <button onclick="testHourlyRental()">Test Hourly Rental (2 hours)</button>
+                    <button onclick="testShortTermRental()">Test Short Term (3 days)</button>
+                    <button onclick="testLongTermRental()">Test Long Term (30 days)</button>
+                </div>
+                <div>
+                    <button onclick="testInsufficientBalance()">Test Insufficient Balance</button>
+                    <button onclick="testMinimumTopup()">Test Minimum Topup</button>
+                    <button onclick="testGSTCalculation()">Test GST Calculation</button>
+                </div>
+            </div>
+            <div id="testResponse" class="response-container" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api/v1';
+        let authToken = localStorage.getItem('authToken') || '';
+        let selectedPaymentOption = 'auto';
+
+        // Set default dates
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        document.getElementById('startDate').value = now.toISOString().slice(0, 16);
+        document.getElementById('endDate').value = tomorrow.toISOString().slice(0, 16);
+
+        // Utility functions
+        function showResponse(elementId, response, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.innerHTML = `<pre>${JSON.stringify(response, null, 2)}</pre>`;
+            element.className = `response-container ${isError ? 'error' : 'success'}`;
+        }
+
+        function makeRequest(url, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (authToken) {
+                options.headers['Authorization'] = authToken;
+            }
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            return fetch(url, options)
+                .then(response => response.json())
+                .catch(error => ({ success: false, message: error.message }));
+        }
+
+        // Authentication
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await makeRequest(`${API_BASE_URL}/users/login`, 'POST', {
+                    email,
+                    password
+                });
+
+                if (response.success && response.data.accessToken) {
+                    authToken = response.data.accessToken;
+                    localStorage.setItem('authToken', authToken);
+                    showResponse('authResponse', response);
+                    getWalletDetails(); // Automatically fetch wallet details after login
+                } else {
+                    showResponse('authResponse', response, true);
+                }
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, true);
+            }
+        }
+
+        function logout() {
+            authToken = '';
+            localStorage.removeItem('authToken');
+            document.getElementById('walletBalance').innerHTML = '<h2>₹0.00</h2><p>Please login first</p>';
+            showResponse('authResponse', { message: 'Logged out successfully' });
+        }
+
+        // Wallet functions
+        async function getWalletDetails() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(`${API_BASE_URL}/wallet`);
+                
+                if (response.success) {
+                    const balance = response.data.balance || 0;
+                    document.getElementById('walletBalance').innerHTML = 
+                        `<h2>₹${balance.toFixed(2)}</h2><p>Current Balance</p>`;
+                }
+                
+                showResponse('walletResponse', response, !response.success);
+            } catch (error) {
+                showResponse('walletResponse', { error: error.message }, true);
+            }
+        }
+
+        async function getTransactionHistory() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(`${API_BASE_URL}/wallet/transactions`);
+                showResponse('walletResponse', response, !response.success);
+            } catch (error) {
+                showResponse('walletResponse', { error: error.message }, true);
+            }
+        }
+
+        function calculateTopupAmount() {
+            const amount = parseFloat(document.getElementById('topupAmount').value);
+            
+            if (amount < 200) {
+                showResponse('topupCalculation', { error: 'Minimum topup amount is ₹200' }, true);
+                return;
+            }
+
+            const discountAmount = Math.round((amount * 10) / 100);
+            const discountedAmount = amount - discountAmount;
+            const gstAmount = Math.round((discountedAmount * 18) / 100);
+            const finalAmount = discountedAmount + gstAmount;
+
+            const calculation = {
+                originalAmount: amount,
+                discountAmount: discountAmount,
+                discountedAmount: discountedAmount,
+                gstAmount: gstAmount,
+                finalAmountToPay: finalAmount,
+                walletCreditAmount: amount,
+                savings: amount - finalAmount
+            };
+
+            showResponse('topupCalculation', calculation);
+        }
+
+        async function initiateWalletTopup() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('topupAmount').value);
+            const paymentMethod = document.getElementById('paymentMethod').value;
+
+            try {
+                const response = await makeRequest(`${API_BASE_URL}/wallet/topup`, 'POST', {
+                    amount,
+                    paymentMethod
+                });
+
+                showResponse('topupResponse', response, !response.success);
+                
+                if (response.success && response.data.paymentUrl) {
+                    // In a real app, you would redirect to the payment URL
+                    console.log('Redirect to payment URL:', response.data.paymentUrl);
+                }
+            } catch (error) {
+                showResponse('topupResponse', { error: error.message }, true);
+            }
+        }
+
+        // Rental payment functions
+        function calculateRentalAmount() {
+            const baseAmount = parseFloat(document.getElementById('rentalAmount').value);
+            const gstAmount = Math.round((baseAmount * 18) / 100);
+            const totalAmount = baseAmount + gstAmount;
+
+            const calculation = {
+                baseAmount: baseAmount,
+                gstAmount: gstAmount,
+                totalAmountWithGST: totalAmount
+            };
+
+            showResponse('rentalCalculation', calculation);
+        }
+
+        async function checkPaymentOptions() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('rentalAmount').value);
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+
+            // Mock check (in real app, this would call the actual API)
+            const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+
+            const isShortTerm = diffDays < 7;
+            const isHourly = diffHours < 24 && diffDays <= 1;
+            const totalAmountWithGST = Math.round(amount * 1.18);
+
+            const options = {
+                rentalDuration: {
+                    days: diffDays,
+                    hours: diffHours,
+                    isShortTerm: isShortTerm,
+                    isHourly: isHourly
+                },
+                totalAmountWithGST: totalAmountWithGST,
+                paymentRules: {
+                    shortTermPreferred: isShortTerm ? 'wallet' : 'both',
+                    hourlyRequired: isHourly ? 'wallet_only' : 'both'
+                }
+            };
+
+            showResponse('paymentOptionsResponse', options);
+        }
+
+        function selectPaymentOption(option) {
+            selectedPaymentOption = option;
+            
+            // Update UI
+            document.querySelectorAll('.payment-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            event.target.closest('.payment-option').classList.add('selected');
+        }
+
+        async function processRentalPayment() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('rentalAmount').value);
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+            const propertyName = document.getElementById('propertyName').value;
+
+            // Mock rental payment processing
+            const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+            const totalAmountWithGST = Math.round(amount * 1.18);
+
+            const paymentResult = {
+                rentalDetails: {
+                    propertyName: propertyName,
+                    baseAmount: amount,
+                    totalAmountWithGST: totalAmountWithGST,
+                    duration: { days: diffDays, hours: diffHours }
+                },
+                paymentPreference: selectedPaymentOption,
+                simulatedResult: {
+                    success: true,
+                    message: `Payment simulation for ${propertyName}`,
+                    paymentMethod: selectedPaymentOption === 'wallet_only' ? 'wallet' : 'gateway',
+                    amountProcessed: totalAmountWithGST
+                }
+            };
+
+            showResponse('rentalPaymentResponse', paymentResult);
+        }
+
+        // Test scenarios
+        function testHourlyRental() {
+            const now = new Date();
+            const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+            
+            document.getElementById('startDate').value = now.toISOString().slice(0, 16);
+            document.getElementById('endDate').value = twoHoursLater.toISOString().slice(0, 16);
+            document.getElementById('rentalAmount').value = 500;
+            document.getElementById('propertyName').value = 'Hourly Test Property';
+            
+            setTimeout(() => {
+                checkPaymentOptions();
+            }, 100);
+        }
+
+        function testShortTermRental() {
+            const now = new Date();
+            const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('startDate').value = now.toISOString().slice(0, 16);
+            document.getElementById('endDate').value = threeDaysLater.toISOString().slice(0, 16);
+            document.getElementById('rentalAmount').value = 2000;
+            document.getElementById('propertyName').value = 'Short Term Test Property';
+            
+            setTimeout(() => {
+                checkPaymentOptions();
+            }, 100);
+        }
+
+        function testLongTermRental() {
+            const now = new Date();
+            const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('startDate').value = now.toISOString().slice(0, 16);
+            document.getElementById('endDate').value = thirtyDaysLater.toISOString().slice(0, 16);
+            document.getElementById('rentalAmount').value = 15000;
+            document.getElementById('propertyName').value = 'Long Term Test Property';
+            
+            setTimeout(() => {
+                checkPaymentOptions();
+            }, 100);
+        }
+
+        function testInsufficientBalance() {
+            const testResult = {
+                scenario: 'Insufficient Balance Test',
+                mockWalletBalance: 100,
+                requiredAmount: 1180, // 1000 + 18% GST
+                result: {
+                    canPayFromWallet: false,
+                    message: 'Insufficient wallet balance. Available: ₹100, Required: ₹1180',
+                    suggestedAction: 'Please top up your wallet or use payment gateway'
+                }
+            };
+            
+            showResponse('testResponse', testResult);
+        }
+
+        function testMinimumTopup() {
+            document.getElementById('topupAmount').value = 150;
+            setTimeout(() => {
+                calculateTopupAmount();
+            }, 100);
+        }
+
+        function testGSTCalculation() {
+            const testCases = [
+                { baseAmount: 1000, description: 'Standard rental' },
+                { baseAmount: 5000, description: 'Premium rental' },
+                { baseAmount: 200, description: 'Minimum wallet topup' }
+            ];
+
+            const results = testCases.map(testCase => {
+                const gstAmount = Math.round((testCase.baseAmount * 18) / 100);
+                const totalAmount = testCase.baseAmount + gstAmount;
+                
+                return {
+                    ...testCase,
+                    gstAmount: gstAmount,
+                    totalAmountWithGST: totalAmount,
+                    gstPercentage: '18%'
+                };
+            });
+
+            showResponse('testResponse', { gstCalculationTests: results });
+        }
+
+        // Initialize
+        if (authToken) {
+            getWalletDetails();
+        }
+    </script>
+</body>
+</html>
