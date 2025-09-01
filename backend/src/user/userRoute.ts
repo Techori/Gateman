@@ -31,6 +31,7 @@ userRouter.post("/register", createUser);
 userRouter.post("/login", loginUser);
 
 // Protected routes - require authentication
+// user logout by userId (by token)
 userRouter.post("/logout", authenticate, logoutUser);
 userRouter.post("/logout-all", authenticate, logoutAllDevices);
 userRouter.post("/logout-specific", authenticate, logoutSpecificSession);
@@ -79,6 +80,9 @@ userRouter.post("/force-logout", forecedLogoutAllDevices); // Note: This one doe
 
 // user logout by userid and sessionId
 userRouter.post('/logoutUserBySessionId',logoutUserBySessionId)
+
+
+
 
 // route for create employee for property owerner role
 userRouter.post("/createEmployee", authenticate, createEmployee);

@@ -35,6 +35,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { useMutation } from '@tanstack/react-query'
+import { logoutUser } from '@/http/api'
+
 
 // Navigation items
 const navigation = [
@@ -74,6 +78,17 @@ const user = {
 
 export function PropertyOwnerSidebar() {
   const location = useLocation()
+
+  const mutation = useMutation({
+    mutationFn: logoutUser,
+    onSuccess: (response) => {
+      // Handle successful logout
+      // navigate to home page
+    },
+    onError: (error) => {
+      // Handle logout error
+    },
+  })
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -165,8 +180,10 @@ export function PropertyOwnerSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
+                  <LogOut className="mr-2 h-4 w-4 " />
+                  <Button variant="link" className="text-red-600 border border-red-600" onClick={handleLogout}>
+                    Log out
+                  </Button>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

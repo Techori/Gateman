@@ -53,9 +53,9 @@ const createEmployee = async (data: { email: string; password: string }) => {
     const res = await api.post('/api/v1/users/createEmployee', data)
     return res.data
 }
-
-const logoutUser = async()=>{
-    const res = await api.post('')
+// user logout by userId (by token)
+const logoutUser = async(data:{sessionId:string})=>{
+    const res = await api.post('/api/v1/users/logout-specific', {data})
     return res.data
 }
 const fecthAllOwnerProperty = async (data:{page:number,limit:number})=>{
@@ -71,6 +71,7 @@ const logoutUserBySessionId = async(data: { id: string;sessionId: string; })=>{
     const res = await api.post("/api/v1/users/logoutUserBySessionId",data)
     return res.data
 }
+
 
 const registerUser = async (data: { email: string; password: string; name: string; }) => {
     const res = await api.post('/api/v1/users/register', data)
@@ -158,5 +159,6 @@ export {
     createEmployee,
     logoutUserBySessionId,
     fecthAllOwnerProperty,
-    fecthAllOwnerPropertyWithType
+    fecthAllOwnerPropertyWithType,
+    logoutUser
 }
