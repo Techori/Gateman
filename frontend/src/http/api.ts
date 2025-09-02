@@ -54,9 +54,11 @@ const createEmployee = async (data: { email: string; password: string }) => {
     return res.data
 }
 // user logout by userId (by token)
-const logoutUser = async(data:{sessionId:string})=>{
-    const res = await api.post('/api/v1/users/logout-specific', {data})
-    return res.data
+const logoutUser = async (sessionId: string) => {
+    const res = await api.post('/api/v1/users/logout-specific', { 
+        sessionId: sessionId  // Pass sessionId in the request body
+    });
+    return res.data;
 }
 const fecthAllOwnerProperty = async (data:{page:number,limit:number})=>{
     const res = await api.post('/owner/all-properties',data)
