@@ -237,6 +237,16 @@ const propertyStausSchemawithType = z.object({
     type: z.string().min(1, "property type is required")
 })
 
+const priceRangeSchema = z.object({
+    lowestPrice: z.coerce.number().min(0, "Lowest price must be non-negative"),
+    highestPrice: z.coerce.number().min(0, "Highest price must be non-negative"),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(50).default(10)
+}).refine(data => data.lowestPrice <= data.highestPrice, {
+    message: "Lowest price must be less than or equal to highest price",
+    path: ["lowestPrice"]
+});
+
 export {
     createPropertySchema,
     updatePropertySchema,
@@ -247,5 +257,6 @@ export {
     pageAndLimitCitySchema,
     pageAndLimitCityAndTypeSchema,
     propertyStausSchema,
-    propertyStausSchemawithType
+    propertyStausSchemawithType,
+    priceRangeSchema
 };

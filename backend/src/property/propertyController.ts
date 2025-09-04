@@ -4,7 +4,7 @@ import { z, ZodError } from "zod";
 import path from "node:path";
 import fs from "node:fs";
 import type { AuthRequest } from "../middleware/authMiddleware.js";
-import { createPropertySchema, pageAndLimitCityAndTypeSchema, pageAndLimitCitySchema, pageAndLimitSchema, pageAndLimitTypeSchema, propertyStausSchema, propertyStausSchemawithType } from "./propertyZodSchema.js";
+import { createPropertySchema, pageAndLimitCityAndTypeSchema, pageAndLimitCitySchema, pageAndLimitSchema, pageAndLimitTypeSchema, priceRangeSchema, propertyStausSchema, propertyStausSchemawithType } from "./propertyZodSchema.js";
 import { Property } from "./propertyModel.js";
 import { User } from "../user/userModel.js";
 import cloudinary from "../config/cloudinary.js";
@@ -1332,6 +1332,135 @@ const getAllPropertyForActiveAndVerified = async (req: Request, res: Response, n
     }
 };
 
+//  controller for authenticated property owners to filter their properties by price range
+const getOwnerPropertiesByPriceRange = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+
+        // Validate request body
+        const validatedData = priceRangeSchema.parse(req.body);
+        const { lowestPrice, highestPrice, page, limit } = validatedData;
+
+        const skip = (page - 1) * limit;
+
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // Only property owners are allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        // Build query for owner's properties within price range
+        const query = {
+            ownerId: user._id,
+            $or: [
+                { 
+                    "pricing.hourlyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.dailyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.weeklyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.monthlyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    cost: { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                }
+            ]
+        };
+
+        const allProperties = await Property.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
+
+        const totalProperties = await Property.countDocuments(query);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        res.status(200).json({
+            success: true,
+            message: "Owner properties fetched successfully by price range",
+            data: {
+                properties: allProperties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    lowestPrice,
+                    highestPrice
+                }
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid request data", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        console.error("Get owner properties by price range error:", error);
+        next(createHttpError(500, "Internal server error while fetching owner properties by price range"));
+    }
+};
+
 export {
     createProperty,
     getPropertyById,
@@ -1347,5 +1476,6 @@ export {
     getOwnerPropertyByVerificationStatusAndTypeWithPagination,
     getOwnerPropertyByVerificationStatusWithPagination,
     getOwnerPropertyByCityNameWithPagination,
-    getOwnerPropertyByCityAndTypeWithPagination
+    getOwnerPropertyByCityAndTypeWithPagination,
+    getOwnerPropertiesByPriceRange
 };
