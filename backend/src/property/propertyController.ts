@@ -1461,6 +1461,100 @@ const getOwnerPropertiesByPriceRange = async (req: Request, res: Response, next:
     }
 };
 
+//  controller getAllVerifiedPropertiesByPriceRange
+const getAllVerifiedPropertiesByPriceRange = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // Validate request body
+        const validatedData = priceRangeSchema.parse(req.body);
+        const { lowestPrice, highestPrice, page, limit } = validatedData;
+
+        const skip = (page - 1) * limit;
+
+        // Build the query for verified properties with price range
+        const query = {
+            verificationStatus: "verified",
+            propertyStatus: "active",
+            $or: [
+                // Check if any pricing option falls within the range
+                { 
+                    "pricing.hourlyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.dailyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.weeklyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                { 
+                    "pricing.monthlyRate": { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                },
+                
+                { 
+                    cost: { 
+                        $gte: lowestPrice, 
+                        $lte: highestPrice 
+                    } 
+                }
+            ]
+        };
+
+        // Execute the query with pagination
+        const allProperties = await Property.find(query)
+            .populate('ownerId', 'name email phoneNumber')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
+
+        // Get total count for pagination
+        const totalProperties = await Property.countDocuments(query);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        res.status(200).json({
+            success: true,
+            message: "Properties fetched successfully by price range",
+            data: {
+                properties: allProperties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    lowestPrice,
+                    highestPrice
+                }
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid request data", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        console.error("Get properties by price range error:", error);
+        next(createHttpError(500, "Internal server error while fetching properties by price range"));
+    }
+};
+
 export {
     createProperty,
     getPropertyById,
@@ -1477,5 +1571,6 @@ export {
     getOwnerPropertyByVerificationStatusWithPagination,
     getOwnerPropertyByCityNameWithPagination,
     getOwnerPropertyByCityAndTypeWithPagination,
-    getOwnerPropertiesByPriceRange
+    getOwnerPropertiesByPriceRange,
+    getAllVerifiedPropertiesByPriceRange
 };
