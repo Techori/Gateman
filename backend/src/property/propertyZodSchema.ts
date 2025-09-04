@@ -246,6 +246,36 @@ const priceRangeSchema = z.object({
     message: "Lowest price must be less than or equal to highest price",
     path: ["lowestPrice"]
 });
+const distanceFilterSchema = z.object({
+    // Transportation filters - at least one must be provided
+    metroDistance: z.coerce.number().min(0).max(50).optional(),
+    busStopDistance: z.coerce.number().min(0).max(20).optional(),
+    railwayDistance: z.coerce.number().min(0).max(100).optional(),
+    
+    // Pagination
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(50).default(10),
+    
+    // Optional additional filters
+    city: z.string().trim().optional(),
+    type: z.enum([
+        "DayPass",
+        "Meeting Room",
+        "Coworking Space",
+        "Managed Office",
+        "Virtual office",
+        "Office/Commercial",
+        "Community Hall"
+    ]).optional()
+}).refine(data => {
+    // At least one distance filter must be provided
+    return data.metroDistance !== undefined || 
+           data.busStopDistance !== undefined || 
+           data.railwayDistance !== undefined;
+}, {
+    message: "At least one distance filter (metroDistance, busStopDistance, or railwayDistance) must be provided",
+    path: ["metroDistance"]
+});
 
 export {
     createPropertySchema,
@@ -258,5 +288,6 @@ export {
     pageAndLimitCityAndTypeSchema,
     propertyStausSchema,
     propertyStausSchemawithType,
-    priceRangeSchema
+    priceRangeSchema,
+    distanceFilterSchema
 };
