@@ -21,7 +21,8 @@ import {
     getOwnerPropertyByCityAndTypeWithPagination,
     getOwnerPropertiesByPriceRange,
     getAllVerifiedPropertiesByPriceRange,
-    getOwnerPropertiesByDistance
+    getOwnerPropertiesByDistance,
+    getAllVerifiedPropertiesByDistance
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -90,6 +91,9 @@ propertyRoute.post("/client/all-verified-properties-with-city-type", allVerified
 
 // For public/client access - no authentication required
 propertyRoute.post("/client/all-verified-properties-by-price-range", getAllVerifiedPropertiesByPriceRange);
+
+// For public/client access - no authentication required
+propertyRoute.post("/client/all-verified-properties-by-distance", getAllVerifiedPropertiesByDistance);
 
 // PARAMETERIZED ROUTES MUST COME LAST
 // Get property by ID (public can view verified properties)

@@ -1699,6 +1699,114 @@ const getOwnerPropertiesByDistance = async (req: Request, res: Response, next: N
         next(createHttpError(500, "Internal server error while fetching owner properties by distance"));
     }
 };
+// Controller for public access - get verified properties by distance from transportation
+const getAllVerifiedPropertiesByDistance = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // Validate request body
+        const validatedData = distanceFilterSchema.parse(req.body);
+        const { metroDistance, busStopDistance, railwayDistance, page, limit, city, type } = validatedData;
+
+        const skip = (page - 1) * limit;
+
+        // Build base query for verified and active properties
+        const baseQuery: any = {
+            verificationStatus: "verified",
+            propertyStatus: "active"
+        };
+
+        // Add optional filters
+        if (city) {
+            baseQuery.city = new RegExp(city, 'i');
+        }
+        if (type) {
+            baseQuery.type = type;
+        }
+
+        // Build distance conditions using $or operator
+        const distanceConditions = [];
+
+        if (metroDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestMetroStation": { $exists: true, $ne: "" } },
+                    { "location.distanceFromMetro": { $lte: metroDistance } }
+                ]
+            });
+        }
+
+        if (busStopDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestBusStop": { $exists: true, $ne: "" } },
+                    { "location.distanceFromBusStop": { $lte: busStopDistance } }
+                ]
+            });
+        }
+
+        if (railwayDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestRailwayStation": { $exists: true, $ne: "" } },
+                    { "location.distanceFromRailway": { $lte: railwayDistance } }
+                ]
+            });
+        }
+
+        // Combine base query with distance conditions
+        const finalQuery = {
+            ...baseQuery,
+            $or: distanceConditions
+        };
+
+        console.log("Distance filter query:", JSON.stringify(finalQuery, null, 2));
+
+        // Execute the query with pagination
+        const allProperties = await Property.find(finalQuery)
+            .populate('ownerId', 'name email phoneNumber')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .exec();
+
+        // Get total count for pagination
+        const totalProperties = await Property.countDocuments(finalQuery);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        res.status(200).json({
+            success: true,
+            message: "Properties fetched successfully by distance from transportation",
+            data: {
+                properties: allProperties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    metroDistance: metroDistance || null,
+                    busStopDistance: busStopDistance || null,
+                    railwayDistance: railwayDistance || null,
+                    city: city || null,
+                    type: type || null
+                }
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid request data", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        console.error("Get properties by distance error:", error);
+        next(createHttpError(500, "Internal server error while fetching properties by distance"));
+    }
+};
 
 export {
     createProperty,
@@ -1718,5 +1826,6 @@ export {
     getOwnerPropertyByCityAndTypeWithPagination,
     getOwnerPropertiesByPriceRange,
     getAllVerifiedPropertiesByPriceRange,
-    getOwnerPropertiesByDistance
+    getOwnerPropertiesByDistance,
+    getAllVerifiedPropertiesByDistance
 };
