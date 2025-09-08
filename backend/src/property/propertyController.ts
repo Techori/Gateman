@@ -2011,6 +2011,171 @@ const getOwnerPropertiesWithAdvancedFilter = async (req: Request, res: Response,
     }
 };
 
+/**
+ * Controller for public/client access - get verified properties with advanced filtering and price sorting
+ */
+const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // Validate request body
+        const validatedData = advancedFilterSchema.parse(req.body);
+        const { 
+            metroDistance, 
+            busStopDistance, 
+            railwayDistance, 
+            city, 
+            type, 
+            lowestPrice, 
+            highestPrice, 
+            hasParking, 
+            page, 
+            limit 
+        } = validatedData;
+
+        const skip = (page - 1) * limit;
+
+        // Build base query for verified and active properties
+        const baseQuery: any = {
+            verificationStatus: "verified",
+            propertyStatus: "active"
+        };
+
+        // Add location filters
+        if (city) {
+            baseQuery.city = new RegExp(city, 'i');
+        }
+        if (type) {
+            baseQuery.type = type;
+        }
+
+        // Add parking filter
+        if (hasParking !== undefined) {
+            if (hasParking) {
+                baseQuery.amenities = { $in: [/parking/i, /car park/i, /vehicle/i] };
+            } else {
+                baseQuery.amenities = { $not: { $in: [/parking/i, /car park/i, /vehicle/i] } };
+            }
+        }
+
+        // Build distance conditions
+        const distanceConditions = [];
+
+        if (metroDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestMetroStation": { $exists: true, $ne: "" } },
+                    { "location.distanceFromMetro": { $lte: metroDistance } }
+                ]
+            });
+        }
+
+        if (busStopDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestBusStop": { $exists: true, $ne: "" } },
+                    { "location.distanceFromBusStop": { $lte: busStopDistance } }
+                ]
+            });
+        }
+
+        if (railwayDistance !== undefined) {
+            distanceConditions.push({
+                $and: [
+                    { "location.nearestRailwayStation": { $exists: true, $ne: "" } },
+                    { "location.distanceFromRailway": { $lte: railwayDistance } }
+                ]
+            });
+        }
+
+        // Add distance conditions to query if any exist
+        if (distanceConditions.length > 0) {
+            baseQuery.$or = distanceConditions;
+        }
+
+        // Add price range conditions
+        if (lowestPrice !== undefined || highestPrice !== undefined) {
+            const priceConditions = [];
+            
+            const priceQuery: any = {};
+            if (lowestPrice !== undefined) priceQuery.$gte = lowestPrice;
+            if (highestPrice !== undefined) priceQuery.$lte = highestPrice;
+
+            priceConditions.push(
+                { "pricing.hourlyRate": priceQuery },
+                { "pricing.dailyRate": priceQuery },
+                { "pricing.weeklyRate": priceQuery },
+                { "pricing.monthlyRate": priceQuery },
+                { cost: priceQuery }
+            );
+
+            if (baseQuery.$or) {
+                // Combine distance and price conditions
+                baseQuery.$and = [
+                    { $or: baseQuery.$or },
+                    { $or: priceConditions }
+                ];
+                delete baseQuery.$or;
+            } else {
+                baseQuery.$or = priceConditions;
+            }
+        }
+
+        console.log("Client advanced filter query:", JSON.stringify(baseQuery, null, 2));
+
+        // Execute query with sorting by price (ascending)
+        const allProperties = await Property.find(baseQuery)
+            .populate('ownerId', 'name email phoneNumber')
+            .sort({ 
+                cost: 1, // Primary sort by cost (ascending)
+                "pricing.hourlyRate": 1, // Secondary sort by hourly rate
+                createdAt: -1 // Tertiary sort by creation date
+            })
+            .skip(skip)
+            .limit(limit)
+            .select('-adminNote -lastInspectionDate') // Hide sensitive admin fields
+            .exec();
+
+        const totalProperties = await Property.countDocuments(baseQuery);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        res.status(200).json({
+            success: true,
+            message: "Verified properties fetched successfully with advanced filters (sorted by price)",
+            data: {
+                properties: allProperties,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProperties,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                },
+                filters: {
+                    metroDistance: metroDistance || null,
+                    busStopDistance: busStopDistance || null,
+                    railwayDistance: railwayDistance || null,
+                    city: city || null,
+                    type: type || null,
+                    lowestPrice: lowestPrice || null,
+                    highestPrice: highestPrice || null,
+                    hasParking: hasParking || null
+                }
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, "Invalid request data", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        console.error("Get verified properties with advanced filter error:", error);
+        next(createHttpError(500, "Internal server error while fetching verified properties"));
+    }
+};
+
 export {
     createProperty,
     getPropertyById,
@@ -2031,5 +2196,6 @@ export {
     getAllVerifiedPropertiesByPriceRange,
     getOwnerPropertiesByDistance,
     getAllVerifiedPropertiesByDistance,
-    getOwnerPropertiesWithAdvancedFilter
+    getOwnerPropertiesWithAdvancedFilter,
+    getAllVerifiedPropertiesWithAdvancedFilter
 };
