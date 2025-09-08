@@ -54,6 +54,9 @@ const _config = {
     EASEBUZZ_KEY: getOptionalEnv("EASEBUZZ_KEY", ""),
     EASEBUZZ_SALT: getOptionalEnv("EASEBUZZ_SALT", ""),
     EASEBUZZ_ENV: getOptionalEnv("EASEBUZZ_ENV", "test"),
+
+    // Cron job configuration
+    CRON_SECRET_TOKEN: getOptionalEnv("CRON_SECRET_TOKEN", "your-cron-secret-token"),
 } as const;
 
 export const config = Object.freeze(_config);

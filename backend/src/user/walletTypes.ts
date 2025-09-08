@@ -150,3 +150,86 @@ export interface AdminWalletActions {
     blockWallet: (userId: string, reason: string, adminId: string) => Promise<boolean>;
     unblockWallet: (userId: string, adminId: string) => Promise<boolean>;
 }
+
+// Auto-Debit related interfaces
+export interface WalletAutoDebitMandate {
+    _id: string;
+    userId: string;
+    serviceId: string;
+    amount: number;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+    customFrequencyDays?: number; // For custom frequency
+    nextDueDate: Date;
+    status: 'active' | 'paused' | 'cancelled' | 'suspended';
+    maxAmount?: number; // Maximum amount that can be debited
+    authorizationMethod: 'checkbox' | 'otp' | 'digital_signature';
+    authorizationToken?: string; // OTP or digital signature token
+    failureRetryCount: number;
+    maxRetryCount: number;
+    graceLastNotified?: Date;
+    createdAt: Date;
+    updatedAt: Date;
+    
+    // Methods
+    canDebit(): boolean;
+    calculateNextDueDate(): Date;
+    incrementRetryCount(): void;
+    resetRetryCount(): void;
+    pause(): void;
+    resume(): void;
+    cancel(): void;
+    suspend(): void;
+    save(): Promise<WalletAutoDebitMandate>;
+}
+
+export interface WalletAutoDebitLog {
+    _id: string;
+    mandateId: string;
+    debitDate: Date;
+    amount: number;
+    status: 'success' | 'failed' | 'pending' | 'retry';
+    retryCount: number;
+    failureReason?: string;
+    transactionId?: string; // Link to wallet transaction
+    systemTriggered: boolean; // true for cron, false for manual
+    triggeredBy?: string; // admin user ID if manual
+    createdAt: Date;
+}
+
+export interface CreateAutoDebitMandateRequest {
+    serviceId: string;
+    amount: number;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+    customFrequencyDays?: number;
+    authorizationMethod: 'checkbox' | 'otp';
+    authorizationToken?: string; // OTP for verification
+    maxAmount?: number;
+    startDate?: Date; // When to start the auto-debit
+}
+
+export interface AutoDebitResponse {
+    success: boolean;
+    message: string;
+    data?: {
+        mandateId: string;
+        nextDueDate: Date;
+        amount: number;
+        frequency: string;
+    };
+}
+
+export interface AutoDebitMandateAction {
+    mandateId: string;
+    action: 'pause' | 'resume' | 'cancel';
+    reason?: string;
+}
+
+export interface AdminAutoDebitSummary {
+    totalActiveMandates: number;
+    totalPausedMandates: number;
+    totalCancelledMandates: number;
+    todaySuccessfulDebits: number;
+    todayFailedDebits: number;
+    recentLogs: WalletAutoDebitLog[];
+    pendingRetries: number;
+}

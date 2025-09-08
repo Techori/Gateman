@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Debit Module Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        button.warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        button.warning:hover {
+            background-color: #e0a800;
+        }
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left: 4px solid #28a745;
+            background-color: #d4edda;
+        }
+        .error {
+            border-left: 4px solid #dc3545;
+            background-color: #f8d7da;
+        }
+        .info {
+            border-left: 4px solid #17a2b8;
+            background-color: #d1ecf1;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .mandate-item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+        }
+        .mandate-item.active {
+            border-left: 4px solid #28a745;
+        }
+        .mandate-item.paused {
+            border-left: 4px solid #ffc107;
+        }
+        .mandate-item.cancelled {
+            border-left: 4px solid #dc3545;
+        }
+        .mandate-item.suspended {
+            border-left: 4px solid #6c757d;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Auto-Debit Module Test Interface</h1>
+            <p>Test the auto-debit functionality for recurring payments</p>
+        </div>
+
+        <!-- Configuration Section -->
+        <div class="section">
+            <h3>Configuration</h3>
+            <div class="form-group">
+                <label for="apiBase">API Base URL:</label>
+                <input type="text" id="apiBase" value="http://localhost:3000" placeholder="http://localhost:3000">
+            </div>
+            <div class="form-group">
+                <label for="authToken">Authorization Token:</label>
+                <input type="password" id="authToken" placeholder="Enter JWT token">
+            </div>
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="text" id="userId" placeholder="Enter user ID">
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Create Mandate Section -->
+            <div class="container">
+                <h3>Create Auto-Debit Mandate</h3>
+                <div class="form-group">
+                    <label for="serviceId">Service ID:</label>
+                    <input type="text" id="serviceId" placeholder="Enter service ID">
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount:</label>
+                    <input type="number" id="amount" placeholder="1500" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="frequency">Frequency:</label>
+                    <select id="frequency" onchange="toggleCustomFrequency()">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group" id="customFrequencyGroup" style="display: none;">
+                    <label for="customFrequencyDays">Custom Frequency (Days):</label>
+                    <input type="number" id="customFrequencyDays" placeholder="30">
+                </div>
+                <div class="form-group">
+                    <label for="authMethod">Authorization Method:</label>
+                    <select id="authMethod">
+                        <option value="checkbox">Checkbox</option>
+                        <option value="otp">OTP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="maxAmount">Max Amount (Optional):</label>
+                    <input type="number" id="maxAmount" placeholder="2000" step="0.01">
+                </div>
+                <button onclick="createMandate()">Create Mandate</button>
+                <div id="createResponse" class="response" style="display: none;"></div>
+            </div>
+
+            <!-- Mandate Management Section -->
+            <div class="container">
+                <h3>Mandate Management</h3>
+                <div class="form-group">
+                    <label for="mandateId">Mandate ID:</label>
+                    <input type="text" id="mandateId" placeholder="Enter mandate ID">
+                </div>
+                <div style="margin: 10px 0;">
+                    <button onclick="pauseMandate()">Pause Mandate</button>
+                    <button onclick="resumeMandate()">Resume Mandate</button>
+                    <button class="danger" onclick="cancelMandate()">Cancel Mandate</button>
+                </div>
+                <div style="margin: 10px 0;">
+                    <button onclick="getMandateLogs()">Get Logs</button>
+                </div>
+                <div id="mandateResponse" class="response" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- User Mandates Section -->
+        <div class="container">
+            <h3>User Mandates</h3>
+            <button onclick="getUserMandates()">Load User Mandates</button>
+            <button onclick="refreshMandates()">Refresh</button>
+            <div id="mandatesContainer" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Admin Section -->
+        <div class="container">
+            <h3>Admin Functions</h3>
+            <div style="margin: 10px 0;">
+                <button onclick="getAdminSummary()">Get Admin Summary</button>
+                <button onclick="getAllMandates()">Get All Mandates</button>
+                <button class="warning" onclick="runCronJob()">Trigger Cron Job</button>
+            </div>
+            <div class="form-group">
+                <label for="forceRunMandateId">Force Run Mandate ID:</label>
+                <input type="text" id="forceRunMandateId" placeholder="Enter mandate ID to force run">
+                <button onclick="forceRunMandate()">Force Run</button>
+            </div>
+            <div id="adminResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Test Data Section -->
+        <div class="container">
+            <h3>Test Data & Utilities</h3>
+            <div style="margin: 10px 0;">
+                <button onclick="generateTestData()">Generate Test Data</button>
+                <button onclick="clearResponses()">Clear All Responses</button>
+            </div>
+            <div class="info response">
+                <strong>Test Instructions:</strong><br>
+                1. First login and get JWT token<br>
+                2. Enter the token in Authorization Token field<br>
+                3. Create a service if not exists<br>
+                4. Create an auto-debit mandate<br>
+                5. Test mandate management functions<br>
+                6. View mandate logs and admin functions
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getApiBase() {
+            return document.getElementById('apiBase').value || 'http://localhost:3000';
+        }
+
+        function getAuthToken() {
+            return document.getElementById('authToken').value;
+        }
+
+        function getUserId() {
+            return document.getElementById('userId').value;
+        }
+
+        function getHeaders() {
+            const token = getAuthToken();
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
+
+        async function makeRequest(url, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: getHeaders()
+                };
+
+                if (body && method !== 'GET') {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                return {
+                    status: response.status,
+                    data: data,
+                    success: response.ok
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    data: { success: false, message: error.message },
+                    success: false
+                };
+            }
+        }
+
+        function displayResponse(elementId, response) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'response ' + (response.success ? 'success' : 'error');
+            element.textContent = JSON.stringify(response.data, null, 2);
+        }
+
+        function toggleCustomFrequency() {
+            const frequency = document.getElementById('frequency').value;
+            const customGroup = document.getElementById('customFrequencyGroup');
+            customGroup.style.display = frequency === 'custom' ? 'block' : 'none';
+        }
+
+        async function createMandate() {
+            const serviceId = document.getElementById('serviceId').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const frequency = document.getElementById('frequency').value;
+            const authMethod = document.getElementById('authMethod').value;
+            const maxAmount = document.getElementById('maxAmount').value;
+            const customFrequencyDays = document.getElementById('customFrequencyDays').value;
+
+            if (!serviceId || !amount) {
+                alert('Service ID and Amount are required');
+                return;
+            }
+
+            const body = {
+                serviceId,
+                amount,
+                frequency,
+                authorizationMethod: authMethod
+            };
+
+            if (maxAmount) {
+                body.maxAmount = parseFloat(maxAmount);
+            }
+
+            if (frequency === 'custom' && customFrequencyDays) {
+                body.customFrequencyDays = parseInt(customFrequencyDays);
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/create`,
+                'POST',
+                body
+            );
+
+            displayResponse('createResponse', response);
+        }
+
+        async function pauseMandate() {
+            const mandateId = document.getElementById('mandateId').value;
+            if (!mandateId) {
+                alert('Mandate ID is required');
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/pause`,
+                'POST',
+                { mandateId }
+            );
+
+            displayResponse('mandateResponse', response);
+        }
+
+        async function resumeMandate() {
+            const mandateId = document.getElementById('mandateId').value;
+            if (!mandateId) {
+                alert('Mandate ID is required');
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/resume`,
+                'POST',
+                { mandateId }
+            );
+
+            displayResponse('mandateResponse', response);
+        }
+
+        async function cancelMandate() {
+            const mandateId = document.getElementById('mandateId').value;
+            if (!mandateId) {
+                alert('Mandate ID is required');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to cancel this mandate?')) {
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/cancel`,
+                'POST',
+                { mandateId }
+            );
+
+            displayResponse('mandateResponse', response);
+        }
+
+        async function getMandateLogs() {
+            const mandateId = document.getElementById('mandateId').value;
+            if (!mandateId) {
+                alert('Mandate ID is required');
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/logs/${mandateId}`
+            );
+
+            displayResponse('mandateResponse', response);
+        }
+
+        async function getUserMandates() {
+            const userId = getUserId();
+            if (!userId) {
+                alert('User ID is required');
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/${userId}`
+            );
+
+            if (response.success && response.data.data) {
+                displayMandates(response.data.data.mandates);
+            } else {
+                const container = document.getElementById('mandatesContainer');
+                container.innerHTML = `<div class="error response">${JSON.stringify(response.data, null, 2)}</div>`;
+            }
+        }
+
+        function displayMandates(mandates) {
+            const container = document.getElementById('mandatesContainer');
+            
+            if (!mandates || mandates.length === 0) {
+                container.innerHTML = '<div class="info response">No mandates found</div>';
+                return;
+            }
+
+            const mandateHtml = mandates.map(mandate => `
+                <div class="mandate-item ${mandate.status}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div><strong>ID:</strong> ${mandate._id}</div>
+                        <div><strong>Status:</strong> <span style="text-transform: uppercase; font-weight: bold; color: ${getStatusColor(mandate.status)}">${mandate.status}</span></div>
+                        <div><strong>Service:</strong> ${mandate.serviceId?.name || mandate.serviceId}</div>
+                        <div><strong>Amount:</strong> ₹${mandate.amount}</div>
+                        <div><strong>Frequency:</strong> ${mandate.frequency}</div>
+                        <div><strong>Next Due:</strong> ${new Date(mandate.nextDueDate).toLocaleDateString()}</div>
+                        <div><strong>Retry Count:</strong> ${mandate.failureRetryCount}/${mandate.maxRetryCount}</div>
+                        <div><strong>Created:</strong> ${new Date(mandate.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <button onclick="fillMandateId('${mandate._id}')">Select for Actions</button>
+                        <button onclick="viewMandateLogs('${mandate._id}')">View Logs</button>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = mandateHtml;
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'active': '#28a745',
+                'paused': '#ffc107',
+                'cancelled': '#dc3545',
+                'suspended': '#6c757d'
+            };
+            return colors[status] || '#333';
+        }
+
+        function fillMandateId(mandateId) {
+            document.getElementById('mandateId').value = mandateId;
+        }
+
+        async function viewMandateLogs(mandateId) {
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/logs/${mandateId}`
+            );
+
+            displayResponse('mandateResponse', response);
+        }
+
+        async function refreshMandates() {
+            await getUserMandates();
+        }
+
+        async function getAdminSummary() {
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/admin/summary`
+            );
+
+            displayResponse('adminResponse', response);
+        }
+
+        async function getAllMandates() {
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/admin/mandates?page=1&limit=10`
+            );
+
+            displayResponse('adminResponse', response);
+        }
+
+        async function runCronJob() {
+            if (!confirm('This will trigger the auto-debit cron job. Continue?')) {
+                return;
+            }
+
+            // Note: In production, you'd need the cron secret token
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/run`,
+                'POST'
+            );
+
+            displayResponse('adminResponse', response);
+        }
+
+        async function forceRunMandate() {
+            const mandateId = document.getElementById('forceRunMandateId').value;
+            if (!mandateId) {
+                alert('Mandate ID is required');
+                return;
+            }
+
+            const response = await makeRequest(
+                `${getApiBase()}/api/v1/wallet/autodebit/admin/force-run`,
+                'POST',
+                { mandateId }
+            );
+
+            displayResponse('adminResponse', response);
+        }
+
+        function generateTestData() {
+            // Generate sample data for testing
+            document.getElementById('serviceId').value = '673abc123def456789012345';
+            document.getElementById('amount').value = '1500';
+            document.getElementById('maxAmount').value = '2000';
+            document.getElementById('mandateId').value = '673def456789012345678901';
+            document.getElementById('forceRunMandateId').value = '673def456789012345678901';
+            document.getElementById('userId').value = '673abc123def456789012345';
+            
+            alert('Test data generated! Please update Service ID and User ID with actual values from your database.');
+        }
+
+        function clearResponses() {
+            const responses = ['createResponse', 'mandateResponse', 'adminResponse'];
+            responses.forEach(id => {
+                const element = document.getElementById(id);
+                element.style.display = 'none';
+                element.textContent = '';
+            });
+            document.getElementById('mandatesContainer').innerHTML = '';
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Auto-Debit Test Interface Loaded');
+        });
+    </script>
+</body>
+</html>
