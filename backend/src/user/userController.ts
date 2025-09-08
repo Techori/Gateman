@@ -86,6 +86,16 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
         if (newUser) {
             console.log("newUser", newUser);
 
+            // Auto-create wallet for the new user
+            try {
+                const { createWallet } = await import("./walletController.js");
+                await createWallet(newUser._id.toString());
+                console.log("Wallet created for user:", newUser._id);
+            } catch (walletError) {
+                console.error("Error creating wallet for user:", walletError);
+                // Don't fail user registration if wallet creation fails
+            }
+
             res.status(201).json({
                 success: true,
                 message: "user is register successfully",

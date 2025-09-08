@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/server.ts",
-    "build": "tsc -p",
+    "build": "tsc",
     "start": "node dist/server.js",
     "format:fix": "prettier . --write",
     "format:check": "prettier . --check",

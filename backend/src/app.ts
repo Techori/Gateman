@@ -13,6 +13,7 @@ import propertyRoute from "./property/propertyRoute.js";
 import cashfreeRoute from "./user/cashfreeRoute.js";
 import paymentRoute from "./user/paymentRoute.js";
 import walletRoute from "./user/walletRoute.js";
+import serviceRoute from "./user/serviceRoute.js";
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use("/api/v1/properties", propertyRoute);
 app.use("/api/v1/cashfree", cashfreeRoute);
 app.use("/api/v1/payments", paymentRoute);
 app.use("/api/v1/wallet", walletRoute);
+app.use("/api/v1/services", serviceRoute);
 
 // Global error handler
 app.use(globalErrorHandler);

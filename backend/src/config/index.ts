@@ -29,6 +29,7 @@ const _config = {
     JWT_AUDIENCE: getOptionalEnv("JWT_AUDIENCE", "your-app-users"),
 
     frontendDomain: getOptionalEnv("FRONTEND_DOMAIN", "http://localhost:3000"),
+    backendDomain: getOptionalEnv("BACKEND_DOMAIN", "http://localhost:3004"),
     liveServerDomain: getOptionalEnv("LIVE_SERVER_DOMAIN", "http://127.0.0.1:5500"),
     adminDashboardDomain: getOptionalEnv(
         "ADMIN_DASHBOARD_DOMAIN",
