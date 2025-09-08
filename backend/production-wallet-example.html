@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Wallet Topup Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .wallet-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .balance-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .topup-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .amount-input {
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        .payment-methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .payment-method {
+            padding: 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .payment-method.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .topup-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .topup-btn:hover {
+            transform: translateY(-2px);
+        }
+        .benefits {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            margin-top: 20px;
+        }
+        .note {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallet-container">
+        <h1>🏦 Production Wallet Topup</h1>
+        
+        <div class="note">
+            <strong>⚠️ Important:</strong> This is a production example showing how real wallet topup should work with payment gateways. 
+            Unlike the test interface, this will redirect to actual payment pages and process real money.
+        </div>
+
+        <div class="balance-card">
+            <h3>💰 Current Wallet Balance</h3>
+            <div style="font-size: 24px; font-weight: bold;" id="walletBalance">₹0.00</div>
+        </div>
+
+        <div class="topup-form">
+            <label for="amount"><strong>Enter Topup Amount (Min ₹200)</strong></label>
+            <input 
+                type="number" 
+                id="amount" 
+                class="amount-input"
+                placeholder="₹500"
+                min="200"
+                step="1"
+            />
+
+            <label><strong>Select Payment Method</strong></label>
+            <div class="payment-methods">
+                <div class="payment-method selected" data-method="easebuzz">
+                    <strong>🏦 EaseBuzz</strong><br>
+                    <small>Credit/Debit Cards, UPI, Net Banking</small>
+                </div>
+                <div class="payment-method" data-method="cashfree">
+                    <strong>💳 Cashfree</strong><br>
+                    <small>All Payment Methods</small>
+                </div>
+            </div>
+
+            <button class="topup-btn" onclick="initiateTopup()">
+                💰 Add Money to Wallet
+            </button>
+        </div>
+
+        <div class="benefits">
+            <h4>✨ Wallet Topup Benefits</h4>
+            <ul>
+                <li><strong>10% Instant Discount</strong> on all wallet topups</li>
+                <li><strong>Automatic Cashback</strong> based on amount</li>
+                <li><strong>Quick Payments</strong> for future bookings</li>
+                <li><strong>Secure Transactions</strong> with encrypted processing</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let selectedPaymentMethod = 'easebuzz';
+
+        // Handle payment method selection
+        document.querySelectorAll('.payment-method').forEach(method => {
+            method.addEventListener('click', () => {
+                document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+                method.classList.add('selected');
+                selectedPaymentMethod = method.dataset.method;
+            });
+        });
+
+        // Load wallet balance
+        async function loadWalletBalance() {
+            try {
+                const token = localStorage.getItem('authToken');
+                if (!token) {
+                    document.getElementById('walletBalance').textContent = 'Please login first';
+                    return;
+                }
+
+                const response = await fetch('/api/v1/wallet', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('walletBalance').textContent = data.data.formattedBalance || '₹0.00';
+                }
+            } catch (error) {
+                console.error('Error loading wallet balance:', error);
+            }
+        }
+
+        // Initiate wallet topup
+        async function initiateTopup() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const token = localStorage.getItem('authToken');
+
+            if (!token) {
+                alert('Please login first to add money to wallet');
+                return;
+            }
+
+            if (!amount || amount < 200) {
+                alert('Please enter a valid amount (minimum ₹200)');
+                return;
+            }
+
+            try {
+                // Show loading state
+                const button = document.querySelector('.topup-btn');
+                const originalText = button.textContent;
+                button.textContent = '⏳ Processing...';
+                button.disabled = true;
+
+                const response = await fetch('/api/v1/wallet/topup', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        paymentMethod: selectedPaymentMethod
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // PRODUCTION: Redirect to payment gateway
+                    if (selectedPaymentMethod === 'easebuzz') {
+                        // Create hidden form and submit to EaseBuzz
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = data.data.paymentUrl;
+                        form.style.display = 'none';
+
+                        // Add all payment data as hidden inputs
+                        Object.keys(data.data.paymentData).forEach(key => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = key;
+                            input.value = data.data.paymentData[key];
+                            form.appendChild(input);
+                        });
+
+                        document.body.appendChild(form);
+                        form.submit();
+
+                    } else if (selectedPaymentMethod === 'cashfree') {
+                        // Redirect to Cashfree payment page
+                        window.location.href = data.data.paymentUrl;
+                    }
+                } else {
+                    alert('Failed to initiate payment: ' + data.message);
+                    // Restore button
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            } catch (error) {
+                console.error('Topup error:', error);
+                alert('An error occurred while processing your request');
+                // Restore button
+                const button = document.querySelector('.topup-btn');
+                button.textContent = '💰 Add Money to Wallet';
+                button.disabled = false;
+            }
+        }
+
+        // Load wallet balance on page load
+        window.addEventListener('load', loadWalletBalance);
+
+        // Simulate amount calculation preview
+        document.getElementById('amount').addEventListener('input', (e) => {
+            const amount = parseFloat(e.target.value) || 0;
+            if (amount >= 200) {
+                const discount = Math.round(amount * 0.1);
+                const afterDiscount = amount - discount;
+                const gst = Math.round(afterDiscount * 0.18);
+                const finalAmount = afterDiscount + gst;
+                
+                // Show calculation preview (you can add this to UI)
+                console.log(`Amount: ₹${amount}, Discount: ₹${discount}, GST: ₹${gst}, Pay: ₹${finalAmount}`);
+            }
+        });
+    </script>
+</body>
+</html>

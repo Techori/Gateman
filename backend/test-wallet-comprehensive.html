@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall        <div class="section">
+            <h3>💰 Initiate Wallet Topup</h3>
+            <div class="info">
+                <p><strong>⚠️ Testing Note:</strong> This interface is for API testing only. In production, wallet topup redirects to real payment gateways (EaseBuzz/Cashfree) for actual payment processing.</p>
+                <p><strong>📋 Production Flow:</strong> User selects amount → API creates payment order → Redirects to payment gateway → User pays → Gateway calls webhook → Wallet credited automatically</p>
+                <p><strong>💡 Benefits:</strong> 10% discount on topups, 18% GST, automatic cashback application</p>
+            </div>
+            <div class="flex">
+                <input type="number" id="topupAmount" placeholder="Amount (min ₹200)" min="200" value="500">
+                <select id="paymentMethod">
+                    <option value="easebuzz">EaseBuzz (Real Gateway)</option>
+                    <option value="cashfree">Cashfree (Real Gateway)</option>
+                </select>
+                <button onclick="initiateTopup()">Test API (No Real Payment)</button>
+            </div>
+            <div id="topupResponse" class="response"></div>
+        </div>st</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        input, select, textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+            width: 200px;
+        }
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+        .flex {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏦 Wallet System Test Interface</h1>
+    
+    <div class="container">
+        <h2>Authentication</h2>
+        <div class="form-group">
+            <label>API Base URL:</label>
+            <input type="text" id="baseUrl" value="http://localhost:3004/api/v1" placeholder="API Base URL">
+        </div>
+        <div class="form-group">
+            <label>Auth Token:</label>
+            <input type="text" id="authToken" placeholder="Bearer token" style="width: 400px;">
+        </div>
+        <button onclick="testConnection()">Test Connection (No Auth)</button>
+        <button onclick="testAuth()">Test Authentication</button>
+        <div id="authResponse" class="response"></div>
+    </div>
+
+    <div class="container">
+        <h2>� Get Authentication Token</h2>
+        <div class="info">
+            <p><strong>Need a token?</strong> Use this section to log in and get your authentication token.</p>
+        </div>
+        
+        <div class="section">
+            <h3>User Login</h3>
+            <div class="flex">
+                <input type="email" id="loginEmail" placeholder="Email" value="user@example.com">
+                <input type="password" id="loginPassword" placeholder="Password" value="password123">
+                <button onclick="loginUser()">Login</button>
+            </div>
+            <div id="loginResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Register New User</h3>
+            <div class="flex">
+                <input type="text" id="registerName" placeholder="Name" value="Test User">
+                <input type="email" id="registerEmail" placeholder="Email" value="test@example.com" title="Will auto-generate unique email">
+                <input type="password" id="registerPassword" placeholder="Password" value="password123">
+                <input type="text" id="registerPhone" placeholder="Phone" value="1234567890">
+                <select id="registerRole">
+                    <option value="client">Client</option>
+                    <option value="admin">Admin</option>
+                    <option value="propertyOwener">Property Owner</option>
+                </select>
+                <button onclick="registerUser()">Register</button>
+            </div>
+            <div id="registerResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>�👤 User Wallet Operations</h2>
+        
+        <div class="section">
+            <h3>Get Wallet Details</h3>
+            <button onclick="getWalletDetails()">Get Wallet Details</button>
+            <div id="walletDetailsResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Wallet Topup</h3>
+            <div class="flex">
+                <input type="number" id="topupAmount" placeholder="Amount (min ₹200)" min="200" value="500">
+                <select id="paymentMethod">
+                    <option value="easebuzz">EaseBuzz</option>
+                    <option value="cashfree">Cashfree</option>
+                </select>
+                <button onclick="initiateTopup()">Initiate Topup</button>
+            </div>
+            <div id="topupResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Service Payment</h3>
+            <div class="flex">
+                <input type="text" id="serviceId" placeholder="Service ID">
+                <input type="number" id="paymentAmount" placeholder="Amount" min="1" value="100">
+                <input type="text" id="paymentDescription" placeholder="Description" value="Test service payment">
+                <input type="text" id="bookingId" placeholder="Booking ID (optional)">
+            </div>
+            <button onclick="processServicePayment()">Process Payment</button>
+            <div id="servicePaymentResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Check Payment Capability</h3>
+            <div class="flex">
+                <input type="number" id="checkAmount" placeholder="Amount to check" min="1" value="100">
+                <button onclick="checkPaymentCapability()">Check Can Pay</button>
+            </div>
+            <div id="paymentCapabilityResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Request Refund</h3>
+            <div class="flex">
+                <input type="text" id="originalTransactionId" placeholder="Original Transaction ID">
+                <input type="number" id="refundAmount" placeholder="Refund Amount" min="1" value="50">
+                <textarea id="refundReason" placeholder="Refund Reason" style="width: 300px; height: 60px;">Service cancelled</textarea>
+            </div>
+            <button onclick="requestRefund()">Request Refund</button>
+            <div id="refundResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Transaction History</h3>
+            <div class="flex">
+                <input type="number" id="historyPage" placeholder="Page" min="1" value="1">
+                <input type="number" id="historyLimit" placeholder="Limit" min="1" max="100" value="10">
+                <select id="historyType">
+                    <option value="">All Types</option>
+                    <option value="credit">Credit</option>
+                    <option value="debit">Debit</option>
+                    <option value="refund">Refund</option>
+                    <option value="cashback">Cashback</option>
+                </select>
+                <select id="historyStatus">
+                    <option value="">All Status</option>
+                    <option value="success">Success</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <button onclick="getTransactionHistory()">Get History</button>
+            </div>
+            <div id="transactionHistoryResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🛠️ Service Management</h2>
+        
+        <div class="section">
+            <h3>Get All Services</h3>
+            <div class="flex">
+                <select id="servicesActiveFilter">
+                    <option value="">All Services</option>
+                    <option value="true">Active Only</option>
+                    <option value="false">Inactive Only</option>
+                </select>
+                <button onclick="getAllServices()">Get Services</button>
+            </div>
+            <div id="servicesResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Create Service (Admin)</h3>
+            <div class="flex">
+                <select id="serviceName">
+                    <option value="Seat Booking">Seat Booking</option>
+                    <option value="Meeting Room">Meeting Room</option>
+                    <option value="Café">Café</option>
+                    <option value="Printing">Printing</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Event">Event</option>
+                </select>
+                <input type="number" id="servicePrice" placeholder="Price" min="0" value="100">
+                <input type="text" id="serviceDescription" placeholder="Description" value="Test service">
+                <button onclick="createService()">Create Service</button>
+            </div>
+            <div id="createServiceResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>⚡ Admin Operations</h2>
+        
+        <div class="section">
+            <h3>Get All Wallets</h3>
+            <div class="flex">
+                <input type="number" id="adminWalletsPage" placeholder="Page" min="1" value="1">
+                <input type="number" id="adminWalletsLimit" placeholder="Limit" min="1" max="100" value="10">
+                <select id="adminWalletsStatus">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="blocked">Blocked</option>
+                </select>
+                <button onclick="getAdminWallets()">Get All Wallets</button>
+            </div>
+            <div id="adminWalletsResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Get All Transactions</h3>
+            <div class="flex">
+                <input type="number" id="adminTransactionsPage" placeholder="Page" min="1" value="1">
+                <input type="number" id="adminTransactionsLimit" placeholder="Limit" min="1" max="100" value="10">
+                <select id="adminTransactionsType">
+                    <option value="">All Types</option>
+                    <option value="credit">Credit</option>
+                    <option value="debit">Debit</option>
+                    <option value="refund">Refund</option>
+                    <option value="cashback">Cashback</option>
+                </select>
+                <button onclick="getAdminTransactions()">Get All Transactions</button>
+            </div>
+            <div id="adminTransactionsResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Wallet Summary</h3>
+            <button onclick="getWalletSummary()">Get Wallet Summary</button>
+            <div id="walletSummaryResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Update Wallet Status</h3>
+            <div class="flex">
+                <input type="text" id="walletIdStatus" placeholder="Wallet ID">
+                <select id="newWalletStatus">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="blocked">Blocked</option>
+                </select>
+                <input type="text" id="statusReason" placeholder="Reason" value="Admin action">
+                <button onclick="updateWalletStatus()">Update Status</button>
+            </div>
+            <div id="updateWalletStatusResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Adjust Wallet Balance</h3>
+            <div class="flex">
+                <input type="text" id="walletIdAdjust" placeholder="Wallet ID">
+                <input type="number" id="adjustAmount" placeholder="Amount" min="1" value="100">
+                <select id="adjustmentType">
+                    <option value="credit">Credit</option>
+                    <option value="debit">Debit</option>
+                </select>
+                <input type="text" id="adjustReason" placeholder="Reason" value="Admin adjustment">
+                <button onclick="adjustWalletBalance()">Adjust Balance</button>
+            </div>
+            <div id="adjustWalletBalanceResponse" class="response"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🎁 Cashback Rules Management</h2>
+        
+        <div class="section">
+            <h3>Get Cashback Rules</h3>
+            <button onclick="getCashbackRules()">Get All Cashback Rules</button>
+            <div id="cashbackRulesResponse" class="response"></div>
+        </div>
+
+        <div class="section">
+            <h3>Create Cashback Rule</h3>
+            <div class="form-group">
+                <label>Min Amount:</label>
+                <input type="number" id="cashbackMinAmount" min="0" value="1000">
+            </div>
+            <div class="form-group">
+                <label>Cashback Amount:</label>
+                <input type="number" id="cashbackAmount" min="0" value="50">
+            </div>
+            <div class="form-group">
+                <label>Cashback Type:</label>
+                <select id="cashbackType">
+                    <option value="fixed">Fixed Amount</option>
+                    <option value="percentage">Percentage</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Max Cashback:</label>
+                <input type="number" id="maxCashback" min="0" value="100">
+            </div>
+            <div class="form-group">
+                <label>Service Type:</label>
+                <select id="cashbackServiceType">
+                    <option value="All">All Services</option>
+                    <option value="Seat Booking">Seat Booking</option>
+                    <option value="Meeting Room">Meeting Room</option>
+                    <option value="Café">Café</option>
+                    <option value="Printing">Printing</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Event">Event</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Valid To:</label>
+                <input type="date" id="cashbackValidTo">
+            </div>
+            <div class="form-group">
+                <label>Description:</label>
+                <input type="text" id="cashbackDescription" value="Test cashback rule" style="width: 300px;">
+            </div>
+            <button onclick="createCashbackRule()">Create Cashback Rule</button>
+            <div id="createCashbackRuleResponse" class="response"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = () => document.getElementById('baseUrl').value;
+        const AUTH_TOKEN = () => document.getElementById('authToken').value;
+
+        const headers = () => {
+            const token = AUTH_TOKEN();
+            const authHeaders = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (token && token.trim()) {
+                // Add Bearer prefix if not already present
+                const bearerToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+                authHeaders['Authorization'] = bearerToken;
+            }
+            
+            return authHeaders;
+        };
+
+        function displayResponse(elementId, response, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(response, null, 2);
+            element.className = `response ${isError ? 'error' : 'success'}`;
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: headers(),
+                    ...options
+                });
+                const data = await response.json();
+                return { data, status: response.status, ok: response.ok };
+            } catch (error) {
+                return { error: error.message, ok: false };
+            }
+        }
+
+        // Authentication
+        async function testAuth() {
+            const token = AUTH_TOKEN();
+            if (!token || token.trim() === '') {
+                displayResponse('authResponse', {
+                    error: "No authentication token provided",
+                    message: "Please enter a valid Bearer token in the Auth Token field above",
+                    suggestion: "You can get a token by logging in through the login API: POST /api/v1/users/login"
+                }, true);
+                return;
+            }
+
+            const result = await makeRequest(`${API_BASE()}/users/sessions/count`);
+            displayResponse('authResponse', result.data || result.error, !result.ok);
+        }
+
+        // Test connection without authentication
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_BASE()}/`);
+                const data = await response.json();
+                displayResponse('authResponse', {
+                    ...data,
+                    note: "Connection successful! This endpoint doesn't require authentication."
+                }, !response.ok);
+            } catch (error) {
+                displayResponse('authResponse', {
+                    error: error.message,
+                    message: "Failed to connect to the API. Please check the API Base URL."
+                }, true);
+            }
+        }
+
+        // Login User
+        async function loginUser() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!email || !password) {
+                displayResponse('loginResponse', {
+                    error: "Missing credentials",
+                    message: "Please provide both email and password"
+                }, true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE()}/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.data && data.data.accessToken) {
+                    document.getElementById('authToken').value = data.data.accessToken;
+                    displayResponse('loginResponse', {
+                        ...data,
+                        note: "✅ Login successful! Token has been automatically filled in the auth token field above."
+                    }, false);
+                } else {
+                    displayResponse('loginResponse', data, true);
+                }
+            } catch (error) {
+                displayResponse('loginResponse', {
+                    error: error.message,
+                    message: "Network error during login"
+                }, true);
+            }
+        }
+
+        // Register User
+        async function registerUser() {
+            const name = document.getElementById('registerName').value;
+            let email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const phone = document.getElementById('registerPhone').value;
+            const role = document.getElementById('registerRole').value;
+            
+            // Generate unique email if using default
+            if (email === 'test@example.com') {
+                const timestamp = Date.now();
+                email = `test${timestamp}@example.com`;
+                document.getElementById('registerEmail').value = email;
+            }
+            
+            if (!name || !email || !password || !phone) {
+                displayResponse('registerResponse', {
+                    error: "Missing required fields",
+                    message: "Please fill in all required fields"
+                }, true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE()}/users/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        password: password,
+                        phoneNumber: phone,
+                        role: role
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    displayResponse('registerResponse', {
+                        ...data,
+                        note: `✅ Registration successful! You can now login with email: ${email}`
+                    }, false);
+                    
+                    // Auto-fill login form for convenience
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = password;
+                } else {
+                    displayResponse('registerResponse', data, true);
+                }
+            } catch (error) {
+                displayResponse('registerResponse', {
+                    error: error.message,
+                    message: "Network error during registration"
+                }, true);
+            }
+        }
+
+        // User Wallet Operations
+        async function getWalletDetails() {
+            const result = await makeRequest(`${API_BASE()}/wallet`);
+            displayResponse('walletDetailsResponse', result.data || result.error, !result.ok);
+        }
+
+        async function initiateTopup() {
+            const amount = document.getElementById('topupAmount').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            
+            const result = await makeRequest(`${API_BASE()}/wallet/topup`, {
+                method: 'POST',
+                body: JSON.stringify({ amount: Number(amount), paymentMethod })
+            });
+            displayResponse('topupResponse', result.data || result.error, !result.ok);
+        }
+
+        async function processServicePayment() {
+            const serviceId = document.getElementById('serviceId').value;
+            const amount = document.getElementById('paymentAmount').value;
+            const description = document.getElementById('paymentDescription').value;
+            const bookingId = document.getElementById('bookingId').value;
+            
+            const body = {
+                serviceId,
+                amount: Number(amount),
+                description
+            };
+            if (bookingId) body.bookingId = bookingId;
+            
+            const result = await makeRequest(`${API_BASE()}/wallet/pay`, {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            displayResponse('servicePaymentResponse', result.data || result.error, !result.ok);
+        }
+
+        async function checkPaymentCapability() {
+            const amount = document.getElementById('checkAmount').value;
+            const result = await makeRequest(`${API_BASE()}/wallet/can-pay?amount=${amount}`);
+            displayResponse('paymentCapabilityResponse', result.data || result.error, !result.ok);
+        }
+
+        async function requestRefund() {
+            const originalTransactionId = document.getElementById('originalTransactionId').value;
+            const refundAmount = document.getElementById('refundAmount').value;
+            const reason = document.getElementById('refundReason').value;
+            
+            const result = await makeRequest(`${API_BASE()}/wallet/refund`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    originalTransactionId,
+                    refundAmount: Number(refundAmount),
+                    reason
+                })
+            });
+            displayResponse('refundResponse', result.data || result.error, !result.ok);
+        }
+
+        async function getTransactionHistory() {
+            const page = document.getElementById('historyPage').value;
+            const limit = document.getElementById('historyLimit').value;
+            const type = document.getElementById('historyType').value;
+            const status = document.getElementById('historyStatus').value;
+            
+            let url = `${API_BASE()}/wallet/transactions?page=${page}&limit=${limit}`;
+            if (type) url += `&type=${type}`;
+            if (status) url += `&status=${status}`;
+            
+            const result = await makeRequest(url);
+            displayResponse('transactionHistoryResponse', result.data || result.error, !result.ok);
+        }
+
+        // Service Management
+        async function getAllServices() {
+            const isActive = document.getElementById('servicesActiveFilter').value;
+            let url = `${API_BASE()}/services`;
+            if (isActive) url += `?isActive=${isActive}`;
+            
+            const result = await makeRequest(url);
+            displayResponse('servicesResponse', result.data || result.error, !result.ok);
+        }
+
+        async function createService() {
+            const name = document.getElementById('serviceName').value;
+            const price = document.getElementById('servicePrice').value;
+            const description = document.getElementById('serviceDescription').value;
+            
+            const result = await makeRequest(`${API_BASE()}/services`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name,
+                    price: Number(price),
+                    description
+                })
+            });
+            displayResponse('createServiceResponse', result.data || result.error, !result.ok);
+        }
+
+        // Admin Operations
+        async function getAdminWallets() {
+            const page = document.getElementById('adminWalletsPage').value;
+            const limit = document.getElementById('adminWalletsLimit').value;
+            const status = document.getElementById('adminWalletsStatus').value;
+            
+            let url = `${API_BASE()}/wallet/admin/wallets?page=${page}&limit=${limit}`;
+            if (status) url += `&status=${status}`;
+            
+            const result = await makeRequest(url);
+            displayResponse('adminWalletsResponse', result.data || result.error, !result.ok);
+        }
+
+        async function getAdminTransactions() {
+            const page = document.getElementById('adminTransactionsPage').value;
+            const limit = document.getElementById('adminTransactionsLimit').value;
+            const type = document.getElementById('adminTransactionsType').value;
+            
+            let url = `${API_BASE()}/wallet/admin/transactions?page=${page}&limit=${limit}`;
+            if (type) url += `&type=${type}`;
+            
+            const result = await makeRequest(url);
+            displayResponse('adminTransactionsResponse', result.data || result.error, !result.ok);
+        }
+
+        async function getWalletSummary() {
+            const result = await makeRequest(`${API_BASE()}/wallet/admin/summary`);
+            displayResponse('walletSummaryResponse', result.data || result.error, !result.ok);
+        }
+
+        async function updateWalletStatus() {
+            const walletId = document.getElementById('walletIdStatus').value;
+            const status = document.getElementById('newWalletStatus').value;
+            const reason = document.getElementById('statusReason').value;
+            
+            const result = await makeRequest(`${API_BASE()}/wallet/admin/wallets/${walletId}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ status, reason })
+            });
+            displayResponse('updateWalletStatusResponse', result.data || result.error, !result.ok);
+        }
+
+        async function adjustWalletBalance() {
+            const walletId = document.getElementById('walletIdAdjust').value;
+            const amount = document.getElementById('adjustAmount').value;
+            const adjustmentType = document.getElementById('adjustmentType').value;
+            const reason = document.getElementById('adjustReason').value;
+            
+            const result = await makeRequest(`${API_BASE()}/wallet/admin/wallets/${walletId}/adjust`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    amount: Number(amount),
+                    adjustmentType,
+                    reason
+                })
+            });
+            displayResponse('adjustWalletBalanceResponse', result.data || result.error, !result.ok);
+        }
+
+        // Cashback Rules Management
+        async function getCashbackRules() {
+            const result = await makeRequest(`${API_BASE()}/services/admin/cashback-rules`);
+            displayResponse('cashbackRulesResponse', result.data || result.error, !result.ok);
+        }
+
+        async function createCashbackRule() {
+            const minAmount = document.getElementById('cashbackMinAmount').value;
+            const cashbackAmount = document.getElementById('cashbackAmount').value;
+            const cashbackType = document.getElementById('cashbackType').value;
+            const maxCashback = document.getElementById('maxCashback').value;
+            const serviceType = document.getElementById('cashbackServiceType').value;
+            const validTo = document.getElementById('cashbackValidTo').value;
+            const description = document.getElementById('cashbackDescription').value;
+            
+            const body = {
+                minAmount: Number(minAmount),
+                cashbackAmount: Number(cashbackAmount),
+                cashbackType,
+                serviceType,
+                validTo,
+                description
+            };
+            
+            if (cashbackType === 'percentage') {
+                body.maxCashback = Number(maxCashback);
+            }
+            
+            const result = await makeRequest(`${API_BASE()}/services/admin/cashback-rules`, {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            displayResponse('createCashbackRuleResponse', result.data || result.error, !result.ok);
+        }
+
+        // Set default valid to date (30 days from now)
+        document.addEventListener('DOMContentLoaded', function() {
+            const validToInput = document.getElementById('cashbackValidTo');
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+            validToInput.value = thirtyDaysFromNow.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>
