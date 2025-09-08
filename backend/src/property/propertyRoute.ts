@@ -22,7 +22,8 @@ import {
     getOwnerPropertiesByPriceRange,
     getAllVerifiedPropertiesByPriceRange,
     getOwnerPropertiesByDistance,
-    getAllVerifiedPropertiesByDistance
+    getAllVerifiedPropertiesByDistance,
+    getOwnerPropertiesWithAdvancedFilter
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -82,6 +83,8 @@ propertyRoute.post("/owner/all-properties-byCityNameAndType", authenticate, getO
 propertyRoute.post("/owner/all-properties-by-price-range", authenticate, getOwnerPropertiesByPriceRange);
 // For property owners - authentication required
 propertyRoute.post("/owner/all-properties-by-distance", authenticate, getOwnerPropertiesByDistance);
+
+propertyRoute.post("/owner/all-properties-advanced-filter", authenticate, getOwnerPropertiesWithAdvancedFilter);
 
 // for user /client no auth is required limit must be under 50
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);
