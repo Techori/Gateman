@@ -24,6 +24,13 @@ const generateOrderId = (): string => {
 // Create Payment Order
 export const createPaymentOrder = async (req: Request, res: Response) => {
     try {
+        console.log('Cashfree create order request:', req.body);
+        console.log('Cashfree config:', { 
+            app_id: config.CASHFREE_APP_ID, 
+            env: config.CASHFREE_ENV,
+            secret_key_prefix: config.CASHFREE_SECRET_KEY?.substring(0, 10) + '...'
+        });
+
         const { amount, customer_name, customer_email, customer_phone, return_url } = req.body;
 
         // Validate required fields
@@ -71,11 +78,20 @@ export const createPaymentOrder = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error('Cashfree create order error:', error.response?.data || error.message);
+        console.error('Cashfree create order error details:');
+        console.error('Error message:', error.message);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Full error:', error);
+        
         res.status(500).json({
             success: false,
             message: 'Failed to create payment order',
-            error: error.response?.data || error.message
+            error: error.response?.data || error.message,
+            details: {
+                status: error.response?.status,
+                statusText: error.response?.statusText
+            }
         });
     }
 };

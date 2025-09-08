@@ -29,6 +29,7 @@ const _config = {
     JWT_AUDIENCE: getOptionalEnv("JWT_AUDIENCE", "your-app-users"),
 
     frontendDomain: getOptionalEnv("FRONTEND_DOMAIN", "http://localhost:3000"),
+    liveServerDomain: getOptionalEnv("LIVE_SERVER_DOMAIN", "http://127.0.0.1:5500"),
     adminDashboardDomain: getOptionalEnv(
         "ADMIN_DASHBOARD_DOMAIN",
         "http://localhost:3000"
@@ -42,6 +43,16 @@ const _config = {
     cloudinaryCloud: getOptionalEnv("CLOUDINARY_CLOUD", ""),
     cloudinaryApiKey: getOptionalEnv("CLOUDINARY_API_KEY", ""),
     cloudinarySecret: getOptionalEnv("CLOUDINARY_API_SECRET", ""),
+
+    // Cashfree Configuration
+    CASHFREE_APP_ID: getRequiredEnv("CASHFREE_APP_ID"),
+    CASHFREE_SECRET_KEY: getRequiredEnv("CASHFREE_SECRET_KEY"),
+    CASHFREE_ENV: getOptionalEnv("CASHFREE_ENV", "TEST"),
+
+    // Easebuzz Configuration
+    EASEBUZZ_KEY: getOptionalEnv("EASEBUZZ_KEY", ""),
+    EASEBUZZ_SALT: getOptionalEnv("EASEBUZZ_SALT", ""),
+    EASEBUZZ_ENV: getOptionalEnv("EASEBUZZ_ENV", "test"),
 } as const;
 
 export const config = Object.freeze(_config);
