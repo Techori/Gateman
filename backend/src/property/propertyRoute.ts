@@ -24,7 +24,8 @@ import {
     getOwnerPropertiesByDistance,
     getAllVerifiedPropertiesByDistance,
     getOwnerPropertiesWithAdvancedFilter,
-    getAllVerifiedPropertiesWithAdvancedFilter
+    getAllVerifiedPropertiesWithAdvancedFilter,
+    updateProperty
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -86,6 +87,13 @@ propertyRoute.post("/owner/all-properties-by-price-range", authenticate, getOwne
 propertyRoute.post("/owner/all-properties-by-distance", authenticate, getOwnerPropertiesByDistance);
 // route for property owners - get their properties with advanced filtering and price sorting
 propertyRoute.post("/owner/all-properties-advanced-filter", authenticate, getOwnerPropertiesWithAdvancedFilter);
+// Update property (only property owners can update their own properties)
+propertyRoute.put(
+    "/owner/:propertyId",
+    authenticate,
+    upload.fields([{ name: "propertyImage", maxCount: 5 }]),
+    updateProperty
+);
 
 // for user /client no auth is required limit must be under 50
 propertyRoute.post("/client/all-verified-properties", allVerifiedPropertyWithPagination);

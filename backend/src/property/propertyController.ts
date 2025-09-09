@@ -2176,6 +2176,321 @@ const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Res
     }
 };
 
+// controller for update property - only owner can update their property and only certain fields can be updated by owner without admin intervention.
+const updateProperty = async (req: Request, res: Response, next: NextFunction) => {
+    const filesToDelete: string[] = []; // Track files to delete
+    
+    try {
+        const propertyId = req.params.propertyId;
+        console.log('Property ID:', propertyId);
+
+        // Extract user details from the request
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+
+        // Step 1: Verify user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Step 2: Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // Step 3: Check user role - only property owners are allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(403, "You are not authorized to update properties"));
+        }
+
+        // Step 4: Verify property exists and belongs to the user
+        const property = await Property.findById(propertyId);
+        if (!property) {
+            return next(createHttpError(404, "Property not found"));
+        }
+
+        // Check if the property belongs to the authenticated user
+        if (property.ownerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You can only update your own properties"));
+        }
+
+        // Process request body similar to createProperty
+        const processedBody = { ...req.body };
+
+        // Handle JSON string fields
+        if (req.body.amenities && typeof req.body.amenities === 'string') {
+            try {
+                processedBody.amenities = JSON.parse(req.body.amenities);
+            } catch (error) {
+                console.error('Error parsing amenities JSON:', error);
+                processedBody.amenities = property.amenities; // Keep existing
+            }
+        }
+
+        if (req.body.unavailableDates && typeof req.body.unavailableDates === 'string') {
+            try {
+                processedBody.unavailableDates = JSON.parse(req.body.unavailableDates);
+            } catch (error) {
+                console.error('Error parsing unavailableDates JSON:', error);
+                processedBody.unavailableDates = property.unavailableDates; // Keep existing
+            }
+        }
+
+        if (req.body.pricing && typeof req.body.pricing === 'string') {
+            try {
+                processedBody.pricing = JSON.parse(req.body.pricing);
+            } catch (error) {
+                console.error('Error parsing pricing JSON:', error);
+                processedBody.pricing = property.pricing; // Keep existing
+            }
+        }
+
+        if (req.body.policies && typeof req.body.policies === 'string') {
+            try {
+                processedBody.policies = JSON.parse(req.body.policies);
+            } catch (error) {
+                console.error('Error parsing policies JSON:', error);
+                processedBody.policies = property.policies; // Keep existing
+            }
+        }
+
+        if (req.body.location && typeof req.body.location === 'string') {
+            try {
+                processedBody.location = JSON.parse(req.body.location);
+            } catch (error) {
+                console.error('Error parsing location JSON:', error);
+                processedBody.location = property.location; // Keep existing
+            }
+        }
+
+        if (req.body.bookingRules && typeof req.body.bookingRules === 'string') {
+            try {
+                processedBody.bookingRules = JSON.parse(req.body.bookingRules);
+            } catch (error) {
+                console.error('Error parsing bookingRules JSON:', error);
+                processedBody.bookingRules = property.bookingRules; // Keep existing
+            }
+        }
+
+        // Remove admin-only fields to prevent updates
+        const {
+            adminNote,
+            lastInspectionDate,
+            verificationStatus,
+            ownerId, // Prevent changing owner
+            ...allowedUpdates
+        } = processedBody;
+
+        // Handle new property images if provided
+        let newImageUrls: string[] = [];
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        
+        if (files && files.propertyImage && files.propertyImage.length > 0) {
+            const propertyImages = files.propertyImage;
+
+            // Validate number of images (max 5)
+            if (propertyImages.length > 5) {
+                return next(createHttpError(400, "Maximum 5 images are allowed"));
+            }
+
+            // Get file paths and add to deletion tracking
+            const imagePaths: string[] = [];
+            for (const file of propertyImages) {
+                const path = getFilePath(file);
+                if (path) {
+                    imagePaths.push(path);
+                    filesToDelete.push(path);
+                }
+            }
+
+            console.log("New image paths:", imagePaths);
+
+            // Check if all files exist
+            const fileChecks = await Promise.all(
+                imagePaths.map(async (path, index) => ({
+                    path,
+                    exists: await checkFileExists(path),
+                    index
+                }))
+            );
+
+            const missingFiles = fileChecks.filter(check => !check.exists);
+            if (missingFiles.length > 0) {
+                return next(createHttpError(400, `Files not found: ${missingFiles.map(f => `image ${f.index + 1}`).join(', ')}`));
+            }
+
+            // Upload new images to Cloudinary
+            const uploadPromises = imagePaths.map((filePath, index) =>
+                uploadImageToCloudinary(filePath, propertyImages[index]?.filename || `property_image_${Date.now()}_${index}`)
+            );
+
+            try {
+                console.log("Uploading new images to Cloudinary...");
+                const uploadResults = await Promise.all(uploadPromises);
+                newImageUrls = uploadResults.map(result => result.url);
+                console.log("New upload results:", uploadResults);
+
+                // Delete old images from Cloudinary if new images are provided
+                if (property.propertyImages && property.propertyImages.length > 0) {
+                    const deletePromises = property.propertyImages.map(async (imageUrl) => {
+                        try {
+                            // Extract public_id from Cloudinary URL
+                            const urlParts = imageUrl.split('/');
+                            const lastPart = urlParts[urlParts.length - 1];
+                            const filename = lastPart ? lastPart.split('.')[0] : "";
+                            const folder = urlParts[urlParts.length - 2];
+                            const publicId = `${folder}/${filename}`;
+                            
+                            console.log("Deleting old image:", publicId);
+                            await cloudinary.uploader.destroy(publicId);
+                        } catch (error) {
+                            console.error("Error deleting old image:", error);
+                        }
+                    });
+                    
+                    await Promise.all(deletePromises);
+                }
+
+            } catch (uploadError) {
+                console.error("Error uploading images:", uploadError);
+                return next(createHttpError(500, "Failed to upload images to Cloudinary"));
+            }
+        }
+
+        // Process pricing data with validation
+        if (allowedUpdates.pricing) {
+            const pricingData = allowedUpdates.pricing;
+            
+            // Validate that at least one pricing option is provided
+            if (!pricingData.hourlyRate && !pricingData.dailyRate &&
+                !pricingData.weeklyRate && !pricingData.monthlyRate) {
+                return next(createHttpError(400, "At least one pricing option (hourly, daily, weekly, or monthly) is required"));
+            }
+        }
+
+        // Validate time slots if provided
+        if (allowedUpdates.bookingRules?.allowedTimeSlots) {
+            const allowedTimeSlots = allowedUpdates.bookingRules.allowedTimeSlots;
+            const validDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+            for (const slot of allowedTimeSlots) {
+                if (!validDays.includes(slot.day?.toLowerCase())) {
+                    return next(createHttpError(400, `Invalid day: ${slot.day}. Must be one of: ${validDays.join(', ')}`));
+                }
+                if (!timeRegex.test(slot.startTime)) {
+                    return next(createHttpError(400, `Invalid start time format: ${slot.startTime}. Use HH:MM format`));
+                }
+                if (!timeRegex.test(slot.endTime)) {
+                    return next(createHttpError(400, `Invalid end time format: ${slot.endTime}. Use HH:MM format`));
+                }
+                if (slot.startTime >= slot.endTime) {
+                    return next(createHttpError(400, `Start time must be before end time for ${slot.day}`));
+                }
+            }
+        }
+
+        // Update property fields (only allow non-admin fields)
+        const updateData = {
+            name: allowedUpdates.name || property.name,
+            description: allowedUpdates.description || property.description,
+            landmark: allowedUpdates.landmark || property.landmark,
+            address: allowedUpdates.address || property.address,
+            city: allowedUpdates.city || property.city,
+            state: allowedUpdates.state || property.state,
+            pincode: allowedUpdates.pincode || property.pincode,
+            googleMapLink: allowedUpdates.googleMapLink || property.googleMapLink,
+            totalArea: allowedUpdates.totalArea ? Number(allowedUpdates.totalArea) : property.totalArea,
+            type: allowedUpdates.type || property.type,
+            floorSize: allowedUpdates.floorSize ? Number(allowedUpdates.floorSize) : property.floorSize,
+            totalFloor: allowedUpdates.totalFloor ? Number(allowedUpdates.totalFloor) : property.totalFloor,
+            cost: allowedUpdates.cost ? Number(allowedUpdates.cost) : property.cost,
+            amenities: allowedUpdates.amenities || property.amenities,
+            isSaturdayOpened: allowedUpdates.isSaturdayOpened !== undefined ? Boolean(allowedUpdates.isSaturdayOpened) : property.isSaturdayOpened,
+            isSundayOpened: allowedUpdates.isSundayOpened !== undefined ? Boolean(allowedUpdates.isSundayOpened) : property.isSundayOpened,
+            seatingCapacity: allowedUpdates.seatingCapacity ? Number(allowedUpdates.seatingCapacity) : property.seatingCapacity,
+            totalCostPerSeat: allowedUpdates.totalCostPerSeat ? Number(allowedUpdates.totalCostPerSeat) : property.totalCostPerSeat,
+            isPriceNegotiable: allowedUpdates.isPriceNegotiable !== undefined ? Boolean(allowedUpdates.isPriceNegotiable) : property.isPriceNegotiable,
+            unavailableDates: allowedUpdates.unavailableDates || property.unavailableDates,
+            furnishingLevel: allowedUpdates.furnishingLevel || property.furnishingLevel,
+            propertyStatus: allowedUpdates.propertyStatus || property.propertyStatus,
+            propertyImages: newImageUrls.length > 0 ? newImageUrls : property.propertyImages,
+            pricing: allowedUpdates.pricing ? { ...property.pricing, ...allowedUpdates.pricing } : property.pricing,
+            policies: allowedUpdates.policies ? { ...property.policies, ...allowedUpdates.policies } : property.policies,
+            location: allowedUpdates.location ? { ...property.location, ...allowedUpdates.location } : property.location,
+            bookingRules: allowedUpdates.bookingRules ? { ...property.bookingRules, ...allowedUpdates.bookingRules } : property.bookingRules
+        };
+
+        // Update the property
+        const updatedProperty = await Property.findByIdAndUpdate(
+            propertyId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProperty) {
+            return next(createHttpError(500, "Failed to update property"));
+        }
+
+        // Clean up local files after successful upload
+        await Promise.all(filesToDelete.map(safeDeleteFile));
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+        }
+
+        // Update session activity
+        user.updateSessionActivity(sessionId);
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({
+            success: true,
+            message: "Property updated successfully",
+            data: updatedProperty,
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: isAccessTokenExp ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        console.error("Update property error:", error);
+
+        // Clean up uploaded files in case of error
+        await Promise.all(filesToDelete.map(safeDeleteFile));
+
+        if (error instanceof z.ZodError) {
+            return next(createHttpError(400, "Invalid property data", { cause: error }));
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        next(createHttpError(500, "Internal server error while updating property"));
+    }
+};
+
 export {
     createProperty,
     getPropertyById,
@@ -2197,5 +2512,6 @@ export {
     getOwnerPropertiesByDistance,
     getAllVerifiedPropertiesByDistance,
     getOwnerPropertiesWithAdvancedFilter,
-    getAllVerifiedPropertiesWithAdvancedFilter
+    getAllVerifiedPropertiesWithAdvancedFilter,
+    updateProperty
 };
