@@ -22,6 +22,7 @@ import {
     changePasswordAndLogoutOthers,
     createEmployee,
     logoutUserBySessionId,
+    getUserProfile,
 } from "./userController.js";
 
 const userRouter = express.Router();
@@ -29,6 +30,8 @@ const userRouter = express.Router();
 // Authentication routes
 userRouter.post("/register", createUser);
 userRouter.post("/login", loginUser);
+// user profile route
+userRouter.get("/userProfile", authenticate, getUserProfile);
 
 // Protected routes - require authentication
 // user logout by userId (by token)
@@ -79,7 +82,7 @@ userRouter.post("/forgot-password/reset", resetPasswordWithOtp);
 userRouter.post("/force-logout", forecedLogoutAllDevices); // Note: This one doesn't require auth as it's for emergency situations
 
 // user logout by userid and sessionId
-userRouter.post('/logoutUserBySessionId',logoutUserBySessionId)
+userRouter.post('/logoutUserBySessionId', logoutUserBySessionId)
 
 
 

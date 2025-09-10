@@ -381,9 +381,9 @@ const logoutUserBySessionId = async (req: Request, res: Response, next: NextFunc
             const err = createHttpError(404, "User not found");
             return next(err);
         }
-        
+
         const isvalidSession = user.isSessionValid(sessionId)
-        if(!isvalidSession){
+        if (!isvalidSession) {
             const err = createHttpError(404, "sessionId not found");
             return next(err);
         }
@@ -1562,6 +1562,86 @@ const changePasswordAndLogoutOthers = async (
     }
 };
 
+// Get user profile
+const getUserProfile = async (req: Request, res: Response, next: NextFunction) => {
+    const _req = req as AuthRequest;
+    const { _id, sessionId, isAccessTokenExp } = _req;
+
+    try {
+        const user = await User.findById(_id).select("-password");
+
+        if (!user) {
+            const err = createHttpError(404, "User not found");
+            return next(err);
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            const err = createHttpError(401, "Invalid or expired session");
+            return next(err);
+        }
+
+        // Update session activity
+        user.updateSessionActivity(sessionId);
+        await user.save({ validateBeforeSave: false });
+        // Handle access token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+        } else {
+            user.updateSessionActivity(sessionId);
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Profile retrieved successfully",
+            data: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phoneNumber: user.phoneNumber,
+                userProfileUrl: user.userProfileUrl,
+                isEmailVerified: user.isEmailVerify,
+                status: user.status,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: isAccessTokenExp ? newRefreshToken : null,
+                activeSessionsCount: user.getSessionCount(),
+                maxSessions: 5,
+                message: isAccessTokenExp
+                    ? "Access token was expired. A new access token has been issued."
+                    : "Access token is still valid.",
+                ...(user.employeeDetails && {
+                    employeeDetails: {
+                        propertyOwnerId: user.employeeDetails.propertyOwnerId,
+                        propertyId: user.employeeDetails.propertyId,
+                        assignedAt: user.employeeDetails.assignedAt
+                    }
+                })
+            }
+        });
+    } catch (error) {
+        console.error("Get Profile Error:", error);
+        const err = createHttpError(
+            500,
+            "Internal server error while retrieving profile"
+        );
+        next(err);
+    }
+};
+
 export {
     createUser,
     loginUser,
@@ -1583,5 +1663,6 @@ export {
     resetPasswordWithOtp,
     changePasswordAndLogoutOthers,
     createEmployee,
-    logoutUserBySessionId
+    logoutUserBySessionId,
+    getUserProfile
 };
