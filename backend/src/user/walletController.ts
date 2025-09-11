@@ -178,6 +178,17 @@ export const initiateWalletTopup = async (req: Request, res: Response, next: Nex
 
         // Handle different payment methods
         if (paymentMethod === 'easebuzz') {
+            // Validate Easebuzz credentials
+            if (!easebuzzConfig.key || !easebuzzConfig.salt || 
+                easebuzzConfig.key === 'your_actual_easebuzz_merchant_key' ||
+                easebuzzConfig.salt === 'your_actual_easebuzz_salt_key') {
+                return res.status(500).json({
+                    success: false,
+                    message: "Easebuzz credentials not properly configured",
+                    error: "Please configure EASEBUZZ_KEY and EASEBUZZ_SALT in environment variables"
+                });
+            }
+
             const paymentData: any = {
                 key: easebuzzConfig.key,
                 txnid: transactionId,
@@ -226,7 +237,7 @@ export const initiateWalletTopup = async (req: Request, res: Response, next: Nex
                 order_meta: {
                     return_url: `${config.frontendDomain}/wallet/topup/success?payment_method=cashfree`,
                     notify_url: `${config.backendDomain}/api/v1/wallet/topup/success`,
-                    payment_methods: "cc,dc,nb,upi,paylater,wallet"
+                    payment_methods: "cc,dc,nb,upi,paylater,app"
                 },
                 order_note: `Wallet Topup - ₹${amounts.originalAmount} (10% discount applied)`
             };
@@ -236,7 +247,7 @@ export const initiateWalletTopup = async (req: Request, res: Response, next: Nex
                     headers: {
                         'X-Client-Id': config.CASHFREE_APP_ID,
                         'X-Client-Secret': config.CASHFREE_SECRET_KEY,
-                        'X-API-Version': '2023-08-01',
+                        'X-API-Version': '2022-09-01',
                         'Content-Type': 'application/json'
                     }
                 });
@@ -253,12 +264,24 @@ export const initiateWalletTopup = async (req: Request, res: Response, next: Nex
                 } else {
                     throw new Error(`Cashfree order creation failed: ${JSON.stringify(cashfreeData)}`);
                 }
-            } catch (cashfreeError) {
+            } catch (cashfreeError: any) {
                 console.error("Cashfree order creation error:", cashfreeError);
+                
+                // Log detailed error information for axios errors
+                if (cashfreeError.response) {
+                    console.error("Cashfree API Response:", {
+                        status: cashfreeError.response.status,
+                        statusText: cashfreeError.response.statusText,
+                        data: cashfreeError.response.data,
+                        headers: cashfreeError.response.headers
+                    });
+                }
+
                 return res.status(500).json({
                     success: false,
                     message: "Failed to create payment order with Cashfree",
-                    error: cashfreeError instanceof Error ? cashfreeError.message : "Unknown error"
+                    error: cashfreeError instanceof Error ? cashfreeError.message : "Unknown error",
+                    details: cashfreeError.response?.data || null
                 });
             }
         }
