@@ -66,7 +66,7 @@ interface IBooking extends Document {
     bookingTimestamp: Date;
     lastUpdated: Date;
     adminNotes?: string;
-    
+
     // Method signatures
     calculateOvertimeCharges(): Promise<{ overtimeAmount: number; overtimeHours: number; isWithinGracePeriod: boolean }>;
     processOvertimePayment(): Promise<number>;
@@ -171,30 +171,30 @@ const overtimeDetailsSchema = new mongoose.Schema<IOvertimeDetails>({
 
 // Sub-schema for ratings
 const ratingsSchema = new mongoose.Schema<IRatings>({
-    cleanliness: { 
-        type: Number, 
-        min: 1, 
-        max: 5 
+    cleanliness: {
+        type: Number,
+        min: 1,
+        max: 5
     },
-    amenities: { 
-        type: Number, 
-        min: 1, 
-        max: 5 
+    amenities: {
+        type: Number,
+        min: 1,
+        max: 5
     },
-    location: { 
-        type: Number, 
-        min: 1, 
-        max: 5 
+    location: {
+        type: Number,
+        min: 1,
+        max: 5
     },
-    value: { 
-        type: Number, 
-        min: 1, 
-        max: 5 
+    value: {
+        type: Number,
+        min: 1,
+        max: 5
     },
-    overall: { 
-        type: Number, 
-        min: 1, 
-        max: 5 
+    overall: {
+        type: Number,
+        min: 1,
+        max: 5
     },
     reviewText: {
         type: String,
@@ -485,7 +485,7 @@ bookingSchema.pre('save', async function (next) {
                 const bookingDate = this.checkInTime.toISOString().split('T')[0];
                 const startTime = this.checkInTime.toTimeString().substring(0, 5);
                 const endTime = this.checkOutTime.toTimeString().substring(0, 5);
-                
+
                 if (!property.isAvailableForBooking(bookingDate, startTime, endTime)) {
                     return next(new Error('Property is not available for the selected time slot'));
                 }
@@ -499,7 +499,7 @@ bookingSchema.pre('save', async function (next) {
         }
 
         // Validate payment amount matches total amount for completed payments
-        if (this.paymentDetails.paymentStatus === 'completed' && 
+        if (this.paymentDetails.paymentStatus === 'completed' &&
             Math.abs(this.paymentDetails.amountPaid - this.totalAmount) > 0.01) {
             return next(new Error('Payment amount must match total booking amount'));
         }
@@ -512,9 +512,9 @@ bookingSchema.pre('save', async function (next) {
 
 // Static methods
 bookingSchema.statics.findConflictingBookings = function (
-    propertyId: mongoose.Types.ObjectId, 
-    checkInTime: Date, 
-    checkOutTime: Date, 
+    propertyId: mongoose.Types.ObjectId,
+    checkInTime: Date,
+    checkOutTime: Date,
     excludeBookingId?: mongoose.Types.ObjectId
 ) {
     const query: any = {
@@ -543,8 +543,8 @@ bookingSchema.statics.findUserActiveBookings = function (userId: mongoose.Types.
 };
 
 bookingSchema.statics.findPropertyBookingsInRange = function (
-    propertyId: mongoose.Types.ObjectId, 
-    startDate: Date, 
+    propertyId: mongoose.Types.ObjectId,
+    startDate: Date,
     endDate: Date
 ) {
     return this.find({
@@ -712,7 +712,7 @@ bookingSchema.methods.canBeCancelled = function (this: IBooking) {
 bookingSchema.methods.getTimeRemaining = function (this: IBooking) {
     const now = new Date();
     const timeRemaining = this.checkInTime.getTime() - now.getTime();
-    
+
     if (timeRemaining <= 0) {
         return { hours: 0, minutes: 0 };
     }
@@ -727,36 +727,36 @@ bookingSchema.methods.calculateRefundAmount = function (this: IBooking) {
     const now = new Date();
     const hoursUntilCheckIn = (this.checkInTime.getTime() - now.getTime()) / (60 * 60 * 1000);
 
-    // Cancellation policy - example logic
+    // Updated Cancellation policy
     if (hoursUntilCheckIn >= 24) {
-        return this.totalAmount * 0.9; // 90% refund if cancelled 24+ hours before
+        return this.totalAmount * 0.8; // 80% refund if cancelled 24+ hours before
     } else if (hoursUntilCheckIn >= 12) {
-        return this.totalAmount * 0.5; // 50% refund if cancelled 12-24 hours before
-    } else if (hoursUntilCheckIn >= 2) {
-        return this.totalAmount * 0.25; // 25% refund if cancelled 2-12 hours before
+        return this.totalAmount * 0.5; // 50% refund if cancelled 12–24 hours before
+    } else if (hoursUntilCheckIn >= 4) {
+        return this.totalAmount * 0.25; // 25% refund if cancelled 4–12 hours before
     } else {
-        return 0; // No refund if cancelled less than 2 hours before
+        return 0; // No refund if cancelled less than 4 hours before
     }
 };
 
 // Add compound indexes for complex queries
-bookingSchema.index({ 
-    propertyId: 1, 
-    checkInTime: 1, 
-    checkOutTime: 1, 
-    bookingStatus: 1 
+bookingSchema.index({
+    propertyId: 1,
+    checkInTime: 1,
+    checkOutTime: 1,
+    bookingStatus: 1
 });
 
-bookingSchema.index({ 
-    userId: 1, 
-    bookingStatus: 1, 
-    checkInTime: -1 
+bookingSchema.index({
+    userId: 1,
+    bookingStatus: 1,
+    checkInTime: -1
 });
 
-bookingSchema.index({ 
-    propertyOwnerId: 1, 
-    bookingDate: -1, 
-    bookingStatus: 1 
+bookingSchema.index({
+    propertyOwnerId: 1,
+    bookingDate: -1,
+    bookingStatus: 1
 });
 
 // Text index for search functionality
