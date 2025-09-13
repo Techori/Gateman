@@ -32,7 +32,7 @@ const extractPublicIdFromUrl = (url: string): string | null => {
         // Remove file extension and any transformations
         const lastSlashIndex = publicIdWithFormat.lastIndexOf('/');
         const fileName = lastSlashIndex === -1 ? publicIdWithFormat : publicIdWithFormat.substring(lastSlashIndex + 1);
-        const publicId = fileName.split('.')[0];
+        const publicId: string = fileName.split('.')[0] ?? ""; // Ensure publicId is always a string
         
         // If there were transformations, we need the full path
         return lastSlashIndex === -1 ? publicId : publicIdWithFormat.replace(/\.[^/.]+$/, "");
@@ -1731,15 +1731,18 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
             return next(createHttpError(401, "Invalid or expired session"));
         }
 
-        // Check if profile image is provided
+        // Check if profile image is provided - Error 1 Fix
         if (!files || !files.userProfileImage || files.userProfileImage.length === 0) {
             return next(createHttpError(400, "Profile image is required"));
         }
 
         const profileImageFile = files.userProfileImage[0];
+        if (!profileImageFile) {
+            return next(createHttpError(400, "Profile image file is missing"));
+        }
         
         // Get file path and track for cleanup
-        const imagePath = getFilePath(profileImageFile);
+        const imagePath = getFilePath(profileImageFile); // Now profileImageFile is guaranteed to be defined
         if (!imagePath) {
             return next(createHttpError(400, "Invalid file path"));
         }
@@ -1749,22 +1752,11 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
         // Check if file exists
         const fileExists = await checkFileExists(imagePath);
         if (!fileExists) {
-            return next(createHttpError(400, "Uploaded file not found"));
-        }
-
-        // Handle access token expiration and session update
-        let newAccessToken = null;
-        let newRefreshToken = null;
-
-        if (isAccessTokenExp) {
-            const updateResult = user.updateSessionActivity(sessionId);
-            newAccessToken = user.generateAccessToken(sessionId);
-
-            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
-                newRefreshToken = updateResult.newRefreshToken;
+            // Clean up if file doesn't exist
+            if (fileToDelete) {
+                await safeDeleteFile(fileToDelete);
             }
-
-            await user.save({ validateBeforeSave: false });
+            return next(createHttpError(400, "Uploaded file not found"));
         }
 
         // Delete old profile image from Cloudinary if exists
@@ -1790,7 +1782,30 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
             console.log("Profile image upload result:", uploadResult);
         } catch (uploadError) {
             console.error("Error uploading profile image:", uploadError);
+            // Clean up local file on upload failure
+            if (fileToDelete) {
+                await safeDeleteFile(fileToDelete);
+            }
             return next(createHttpError(500, "Failed to upload profile image to Cloudinary"));
+        }
+
+        // Clean up local file after successful upload - Cleanup Fix
+        if (fileToDelete) {
+            await safeDeleteFile(fileToDelete);
+            fileToDelete = null; // Prevent double cleanup
+        }
+
+        // Handle access token expiration and session update - Token Fix
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
         }
 
         // Update user profile URL in database
@@ -1799,11 +1814,12 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
         // Update session activity
         user.updateSessionActivity(sessionId);
         
-        await user.save({ validateBeforeSave: false });
-
-        // Clean up local file after successful upload
-        if (fileToDelete) {
-            await safeDeleteFile(fileToDelete);
+        try {
+            await user.save({ validateBeforeSave: false });
+        } catch (saveError) {
+            console.error("Error saving user profile:", saveError);
+            // Consider rolling back Cloudinary upload here if needed
+            return next(createHttpError(500, "Failed to update user profile"));
         }
 
         res.status(200).json({
@@ -1856,15 +1872,23 @@ const safeDeleteFile = async (filePath: string): Promise<void> => {
     }
 };
 
-const getFilePath = (file: Express.Multer.File): string => {
-    if (file.path) {
-        return file.path;
+const getFilePath = (file: Express.Multer.File): string | null => {
+    try {
+        if (file.path) {
+            return file.path;
+        }
+        if (file.filename) {
+            return path.resolve(
+                process.cwd(),
+                "public/data/uploads",
+                file.filename
+            );
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting file path:", error);
+        return null;
     }
-    return path.resolve(
-        process.cwd(),
-        "public/data/uploads",
-        file.filename
-    );
 };
 
 export {
