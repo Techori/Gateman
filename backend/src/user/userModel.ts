@@ -21,9 +21,9 @@ const employeeSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-}, { 
+}, {
     timestamps: true,
-    _id: false  
+    _id: false
 })
 
 // Session interface for individual sessions
@@ -130,6 +130,11 @@ const userSchema = new mongoose.Schema<Users>(
         otpExpiresAt: {
             type: Date,
             default: Date.now,
+        },
+        userProfileUrl: {
+            type: String,
+            trim: true,
+            default: "",
         },
         status: {
             type: String,

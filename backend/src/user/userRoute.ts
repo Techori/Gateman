@@ -1,5 +1,6 @@
 import express from "express";
 import authenticate from "../middleware/authMiddleware.js";
+import { fileURLToPath } from "node:url";
 import {
     createUser,
     loginUser,
@@ -23,15 +24,45 @@ import {
     createEmployee,
     logoutUserBySessionId,
     getUserProfile,
+    uploadUserProfileImage,
 } from "./userController.js";
+import path from "node:path";
+import multer from "multer";
 
 const userRouter = express.Router();
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for file uploads
+const upload = multer({
+    dest: path.resolve(process.cwd(), "public/data/uploads"),
+    limits: {
+        fileSize: 4 * 1024 * 1024, // 4MB per file
+        files: 1 // Maximum 1 file
+    },
+    fileFilter: (req, file, cb) => {
+        // Check file type
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'));
+        }
+    }
+});
 
 // Authentication routes
 userRouter.post("/register", createUser);
 userRouter.post("/login", loginUser);
 // user profile route
 userRouter.get("/userProfile", authenticate, getUserProfile);
+
+userRouter.post(
+    "/uploadUserProfileImage",
+    authenticate,
+    upload.fields([{ name: "userProfileImage", maxCount: 1 }]),
+    uploadUserProfileImage
+);
 
 // Protected routes - require authentication
 // user logout by userId (by token)

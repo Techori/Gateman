@@ -40,9 +40,10 @@ export interface Users {
         session?: UserSession;
     };
     getActiveSessions(): UserSession[];
-    employeeDetails:EmployeeDetails;
+    employeeDetails: EmployeeDetails;
     getSessionCount(): number;
     cleanExpiredSessions(): number;
+    userProfileUrl: string;
 
     // Authentication methods
     isPasswordCorrect(password: string): Promise<boolean>;
