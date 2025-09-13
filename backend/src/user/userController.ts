@@ -14,6 +14,73 @@ import {
 import { Resend } from "resend";
 import { User } from "./userModel.js";
 import { config } from "../config/index.js";
+import { v2 as cloudinary } from 'cloudinary';
+import fs from 'fs/promises';
+import path from 'path';
+
+// Helper function to extract public_id from Cloudinary URL
+const extractPublicIdFromUrl = (url: string): string | null => {
+    try {
+        // Cloudinary URL format: https://res.cloudinary.com/{cloud_name}/image/upload/{transformations}/{public_id}.{format}
+        const urlParts = url.split('/');
+        const uploadIndex = urlParts.findIndex(part => part === 'upload');
+        if (uploadIndex === -1) return null;
+        
+        // Get everything after 'upload/' and before the file extension
+        const publicIdWithFormat = urlParts.slice(uploadIndex + 1).join('/');
+        
+        // Remove file extension and any transformations
+        const lastSlashIndex = publicIdWithFormat.lastIndexOf('/');
+        const fileName = lastSlashIndex === -1 ? publicIdWithFormat : publicIdWithFormat.substring(lastSlashIndex + 1);
+        const publicId = fileName.split('.')[0];
+        
+        // If there were transformations, we need the full path
+        return lastSlashIndex === -1 ? publicId : publicIdWithFormat.replace(/\.[^/.]+$/, "");
+    } catch (error) {
+        console.error('Error extracting public_id from URL:', error);
+        return null;
+    }
+};
+
+// Helper function to delete image from Cloudinary
+const deleteImageFromCloudinary = async (publicId: string): Promise<boolean> => {
+    try {
+        const result = await cloudinary.uploader.destroy(publicId);
+        console.log('Cloudinary deletion result:', result);
+        return result.result === 'ok';
+    } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
+        return false;
+    }
+};
+
+// Helper function to upload profile image to Cloudinary
+const uploadProfileImageToCloudinary = async (
+    filePath: string,
+    userId: string
+): Promise<{ url: string; public_id: string }> => {
+    try {
+        const result = await cloudinary.uploader.upload(filePath, {
+            folder: "UserProfiles",
+            public_id: `user_profile_${userId}_${Date.now()}`,
+            resource_type: "image",
+            transformation: [
+                { width: 400, height: 400, crop: "fill", gravity: "face" },
+                { quality: "auto:good" },
+                { format: "auto" }
+            ],
+            overwrite: true
+        });
+
+        return {
+            url: result.secure_url,
+            public_id: result.public_id
+        };
+    } catch (error) {
+        console.error("Cloudinary upload error:", error);
+        throw new Error("Failed to upload profile image to Cloudinary");
+    }
+};
 
 // Helper function to extract device info
 const getDeviceInfo = (req: Request) => {
@@ -1642,6 +1709,164 @@ const getUserProfile = async (req: Request, res: Response, next: NextFunction) =
     }
 };
 
+// uploadUserProfileImage
+const uploadUserProfileImage = async (req: Request, res: Response, next: NextFunction) => {
+    let fileToDelete: string | null = null;
+    
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+        console.log("Received files for profile upload:", files);
+
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Check if profile image is provided
+        if (!files || !files.userProfileImage || files.userProfileImage.length === 0) {
+            return next(createHttpError(400, "Profile image is required"));
+        }
+
+        const profileImageFile = files.userProfileImage[0];
+        
+        // Get file path and track for cleanup
+        const imagePath = getFilePath(profileImageFile);
+        if (!imagePath) {
+            return next(createHttpError(400, "Invalid file path"));
+        }
+        
+        fileToDelete = imagePath;
+
+        // Check if file exists
+        const fileExists = await checkFileExists(imagePath);
+        if (!fileExists) {
+            return next(createHttpError(400, "Uploaded file not found"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        // Delete old profile image from Cloudinary if exists
+        if (user.userProfileUrl && user.userProfileUrl.trim() !== "") {
+            const oldPublicId = extractPublicIdFromUrl(user.userProfileUrl);
+            if (oldPublicId) {
+                console.log(`Attempting to delete old profile image with public_id: ${oldPublicId}`);
+                const deleted = await deleteImageFromCloudinary(oldPublicId);
+                if (deleted) {
+                    console.log("Successfully deleted old profile image from Cloudinary");
+                } else {
+                    console.log("Failed to delete old profile image, but continuing with upload");
+                }
+            }
+        }
+
+        // Upload new profile image to Cloudinary
+        let uploadResult: { url: string; public_id: string };
+        
+        try {
+            console.log("Uploading new profile image to Cloudinary...");
+            uploadResult = await uploadProfileImageToCloudinary(imagePath, _id.toString());
+            console.log("Profile image upload result:", uploadResult);
+        } catch (uploadError) {
+            console.error("Error uploading profile image:", uploadError);
+            return next(createHttpError(500, "Failed to upload profile image to Cloudinary"));
+        }
+
+        // Update user profile URL in database
+        user.userProfileUrl = uploadResult.url;
+        
+        // Update session activity
+        user.updateSessionActivity(sessionId);
+        
+        await user.save({ validateBeforeSave: false });
+
+        // Clean up local file after successful upload
+        if (fileToDelete) {
+            await safeDeleteFile(fileToDelete);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Profile image uploaded successfully",
+            data: {
+                userProfileUrl: uploadResult.url,
+                cloudinaryPublicId: uploadResult.public_id,
+                uploadedAt: new Date()
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: isAccessTokenExp ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        console.error("Upload profile image error:", error);
+
+        // Clean up uploaded file in case of error
+        if (fileToDelete) {
+            await safeDeleteFile(fileToDelete);
+        }
+
+        if (error instanceof Error) {
+            return next(createHttpError(500, error.message));
+        }
+
+        next(createHttpError(500, "Internal server error while uploading profile image"));
+    }
+};
+
+// Utility functions
+const checkFileExists = async (filePath: string): Promise<boolean> => {
+    try {
+        await fs.access(filePath, fs.constants.F_OK);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const safeDeleteFile = async (filePath: string): Promise<void> => {
+    try {
+        if (await checkFileExists(filePath)) {
+            await fs.unlink(filePath);
+            console.log(`Successfully deleted: ${filePath}`);
+        }
+    } catch (error) {
+        console.log(`Error deleting file ${filePath}:`, (error as Error).message);
+    }
+};
+
+const getFilePath = (file: Express.Multer.File): string => {
+    if (file.path) {
+        return file.path;
+    }
+    return path.resolve(
+        process.cwd(),
+        "public/data/uploads",
+        file.filename
+    );
+};
+
 export {
     createUser,
     loginUser,
@@ -1664,5 +1889,6 @@ export {
     changePasswordAndLogoutOthers,
     createEmployee,
     logoutUserBySessionId,
-    getUserProfile
+    getUserProfile,
+    uploadUserProfileImage,
 };
