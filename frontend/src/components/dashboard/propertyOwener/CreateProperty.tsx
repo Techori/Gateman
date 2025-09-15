@@ -245,22 +245,38 @@ const CreateProperty = () => {
               }
             }
     },
+
     onError: async(err: AxiosError<ErrorResponse>) => {
       console.log('Error creating property:', err);
       const message = err.response?.data?.message || 'Failed to create property. Please try again.';
       toast.error(message);
-      // logout user if token exprie
+      
+      // Only logout user if refresh token is expired/invalid (not just access token)
       if (err.response?.status === 401) {
         console.log("err.response?.status :", err.response?.status);
-        const userSessionData = JSON.parse(
-          sessionStorage.getItem("user") || `{}`
-        );
-        const id = userSessionData.id;
-        const sessionId = userSessionData.sessionId;
-        dispatch(deleteUser());
-        sessionStorage.clear();
-        await logoutUserBySessionId({ id, sessionId });
-        navigate("/auth/login");
+        
+        // Check if the error message indicates refresh token issues
+        const errorMessage = err.response?.data?.message?.toLowerCase() || '';
+        const isRefreshTokenError = 
+          errorMessage.includes('refresh token') ||
+          errorMessage.includes('session expired') ||
+          errorMessage.includes('session mismatch') ||
+          errorMessage.includes('please log in again') ||
+          errorMessage.includes('invalid or expired refresh token');
+        
+        // Only logout if it's a refresh token related error
+        if (isRefreshTokenError) {
+          const userSessionData = JSON.parse(
+            sessionStorage.getItem("user") || `{}`
+          );
+          const id = userSessionData.id;
+          const sessionId = userSessionData.sessionId;
+          dispatch(deleteUser());
+          sessionStorage.clear();
+          await logoutUserBySessionId({ id, sessionId });
+          navigate("/auth/login");
+        }
+        
       }
     },
   });
