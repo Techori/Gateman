@@ -432,7 +432,7 @@ bookingSchema.pre('save', async function (next) {
         // Validate booking doesn't conflict with existing bookings
         if (this.isNew || this.isModified('checkInTime') || this.isModified('checkOutTime')) {
             // Check for direct conflicts (overlapping times)
-            const conflictingBooking = await this.constructor.findOne({
+            const conflictingBooking = await (this.constructor as any).findOne({
                 propertyId: this.propertyId,
                 bookingStatus: { $in: ['confirmed', 'checked_in', 'extended'] },
                 _id: { $ne: this._id },
@@ -451,7 +451,7 @@ bookingSchema.pre('save', async function (next) {
             // Check 30-minute MANDATORY buffer between different users' bookings
             const bufferTimeMs = 30 * 60 * 1000; // 30 minutes in milliseconds
 
-            const bufferBookings = await this.constructor.find({
+            const bufferBookings = await (this.constructor as any).find({
                 propertyId: this.propertyId,
                 userId: { $ne: this.userId },
                 bookingStatus: { $in: ['confirmed', 'checked_in', 'completed', 'checked_out', 'extended'] },
@@ -671,15 +671,20 @@ bookingSchema.methods.processCheckIn = async function (this: IBooking, actualChe
 };
 
 bookingSchema.methods.addRatingAndReview = async function (this: IBooking, ratingData: Partial<IRatings>) {
-    this.ratings = {
+    const ratings: IRatings = {
         cleanliness: ratingData.cleanliness || 0,
         amenities: ratingData.amenities || 0,
         location: ratingData.location || 0,
         value: ratingData.value || 0,
         overall: ratingData.overall || 0,
-        reviewText: ratingData.reviewText,
         reviewDate: new Date()
     };
+    
+    if (ratingData.reviewText) {
+        ratings.reviewText = ratingData.reviewText;
+    }
+    
+    this.ratings = ratings;
 
     await this.save();
 

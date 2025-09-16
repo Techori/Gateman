@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AuthRequest } from "../middleware/authMiddleware.js";
 import { WalletModel } from "./walletModel.js";
-import { ServiceModel } from "./serviceModel.js";
-import { WalletCashbackRuleModel } from "./cashbackRuleModel.js";
-import { User } from "./userModel.js";
+import { ServiceModel } from "../user/serviceModel.js";
+import { WalletCashbackRuleModel } from "../user/cashbackRuleModel.js";
+import { User } from "../user/userModel.js";
 import axios from "axios";
 import type { 
     WalletTopupRequest, 
@@ -1298,5 +1298,54 @@ export const getWalletSummary = async (req: Request, res: Response, next: NextFu
             message: "Failed to fetch wallet summary",
             error: error instanceof Error ? error.message : "Unknown error"
         });
+    }
+};
+
+// Utility functions for services (not controllers)
+export const checkWalletBalance = async (userId: string, amount: number): Promise<boolean> => {
+    try {
+        const wallet = await WalletModel.findOrCreateWallet(userId);
+        return wallet.hasSufficientBalance(amount);
+    } catch (error) {
+        console.error("Check wallet balance error:", error);
+        return false;
+    }
+};
+
+export const processRentalPayment = async (
+    userId: string, 
+    rentalId: string, 
+    amount: number, 
+    description: string
+): Promise<WalletPaymentResponse> => {
+    try {
+        const wallet = await WalletModel.findOrCreateWallet(userId);
+        
+        if (!wallet.hasSufficientBalance(amount)) {
+            return {
+                success: false,
+                message: "Insufficient wallet balance"
+            };
+        }
+
+        // Debit from wallet
+        const transaction = wallet.debitAmount(amount, description, undefined, rentalId);
+        await wallet.save();
+
+        return {
+            success: true,
+            message: "Rental payment processed successfully",
+            data: {
+                walletBalance: wallet.balance,
+                transactionId: transaction._id || "",
+                amountDebited: amount
+            }
+        };
+    } catch (error) {
+        console.error("Process rental payment error:", error);
+        return {
+            success: false,
+            message: "Failed to process rental payment"
+        };
     }
 };

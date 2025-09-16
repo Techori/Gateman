@@ -1,6 +1,6 @@
 import { WalletAutoDebitMandateModel, WalletAutoDebitLogModel } from "./walletAutoDebitModel.js";
 import { WalletModel } from "./walletModel.js";
-import { ServiceModel } from "./serviceModel.js";
+import { ServiceModel } from "../user/serviceModel.js";
 import type { 
     CreateAutoDebitMandateRequest, 
     AutoDebitResponse, 

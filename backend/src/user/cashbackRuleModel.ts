@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import type { WalletCashbackRule } from "./walletTypes.js";
+import type { WalletCashbackRule } from "../wallet/walletTypes.js";
 
 const walletCashbackRuleSchema = new mongoose.Schema<WalletCashbackRule>(
     {

@@ -1,5 +1,5 @@
-import { processRentalPayment, canPayFromWallet } from "../user/walletController.js";
-import type { WalletPaymentResponse } from "../user/walletTypes.js";
+import { processRentalPayment, checkWalletBalance } from "./walletController.js";
+import type { WalletPaymentResponse } from "./walletTypes.js";
 
 // Constants
 const GST_PERCENT = 18;
@@ -67,7 +67,7 @@ export const processEnhancedRentalPayment = async (
         // Determine payment logic based on rental duration and user preference
         if (duration.isShortTerm || duration.isHourly) {
             // For short-term rentals (< 7 days or hourly), try wallet payment first
-            const hasWalletBalance = await canPayFromWallet(userId, totalAmountWithGST);
+            const hasWalletBalance = await checkWalletBalance(userId, totalAmountWithGST);
             
             if (hasWalletBalance && paymentPreference !== 'gateway_only') {
                 // Process payment from wallet
@@ -104,7 +104,7 @@ export const processEnhancedRentalPayment = async (
             };
         } else {
             // For long-term rentals (>= 7 days), provide both options
-            const hasWalletBalance = await canPayFromWallet(userId, totalAmountWithGST);
+            const hasWalletBalance = await checkWalletBalance(userId, totalAmountWithGST);
             
             if (paymentPreference === 'wallet_only' && hasWalletBalance) {
                 // Process payment from wallet
@@ -183,7 +183,7 @@ export const checkRentalPaymentOptions = async (
     try {
         const duration = calculateRentalDuration(rentalData.startDate, rentalData.endDate);
         const totalAmountWithGST = calculateAmountWithGST(rentalData.amount);
-        const hasWalletBalance = await canPayFromWallet(userId, totalAmountWithGST);
+        const hasWalletBalance = await checkWalletBalance(userId, totalAmountWithGST);
         
         let paymentOptions: string[] = [];
         
