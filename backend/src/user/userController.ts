@@ -401,6 +401,7 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
                         email: user.email,
                         role: user.role,
                         isEmailVerified: user.isEmailVerify,
+                        phoneNumber: user.phoneNumber,
                     },
                     deviceInfo: session.deviceInfo,
                 },
