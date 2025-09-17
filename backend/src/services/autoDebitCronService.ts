@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { WalletAutoDebitService } from "../user/walletAutoDebitService.js";
+import { WalletAutoDebitService } from "../wallet/walletAutoDebitService.js";
 
 export class AutoDebitCronService {
     private static instance: AutoDebitCronService;

@@ -5,13 +5,13 @@ import { v4 as uuidv4 } from "uuid";
 interface IPaymentDetails {
     paymentMethod: "wallet" | "card" | "upi" | "netbanking" | "cash";
     walletId?: mongoose.Types.ObjectId;
-    transactionId: string;
+    transactionReference: string;
     paymentGatewayResponse?: any;
-    paymentStatus: "pending" | "completed" | "failed" | "refunded" | "partially_refunded";
+    paymentStatus: "pending" | "success" | "failed" | "refunded" | "partially_refunded";
     amountPaid: number;
     currency: string;
     paymentDate?: Date;
-    refundTransactionId?: string;
+    refundTransactionReference?: string;
     refundDate?: Date;
 }
 
@@ -19,8 +19,8 @@ interface IOvertimeDetails {
     actualCheckoutTime: Date;
     overtimeHours: number;
     overtimeAmount: number;
-    overtimePaymentStatus: "pending" | "completed" | "failed";
-    overtimeTransactionId?: string;
+    overtimePaymentStatus: "pending" | "success" | "failed";
+    overtimeTransactionReference?: string;
     isWithinGracePeriod: boolean;
     overtimePaymentDate?: Date;
 }
@@ -80,6 +80,8 @@ interface IBooking extends Document {
     canBeCancelled(): boolean;
     getTimeRemaining(): { hours: number; minutes: number };
     calculateRefundAmount(): number;
+    isWalletPayment(): boolean;
+    getWalletTransactionReference(): string | null;
 }
 
 interface IBookingModel extends Model<IBooking> {
@@ -102,7 +104,7 @@ const paymentDetailsSchema = new mongoose.Schema<IPaymentDetails>({
             return this.paymentMethod === "wallet";
         }
     },
-    transactionId: {
+    transactionReference: {
         type: String,
         required: true,
         unique: true
@@ -113,7 +115,7 @@ const paymentDetailsSchema = new mongoose.Schema<IPaymentDetails>({
     },
     paymentStatus: {
         type: String,
-        enum: ["pending", "completed", "failed", "refunded", "partially_refunded"],
+        enum: ["pending", "success", "failed", "refunded", "partially_refunded"],
         default: "pending"
     },
     amountPaid: {
@@ -128,7 +130,7 @@ const paymentDetailsSchema = new mongoose.Schema<IPaymentDetails>({
     paymentDate: {
         type: Date
     },
-    refundTransactionId: {
+    refundTransactionReference: {
         type: String
     },
     refundDate: {
@@ -154,10 +156,10 @@ const overtimeDetailsSchema = new mongoose.Schema<IOvertimeDetails>({
     },
     overtimePaymentStatus: {
         type: String,
-        enum: ["pending", "completed", "failed"],
+        enum: ["pending", "success", "failed"],
         default: "pending"
     },
-    overtimeTransactionId: {
+    overtimeTransactionReference: {
         type: String
     },
     isWithinGracePeriod: {
@@ -432,7 +434,7 @@ bookingSchema.pre('save', async function (next) {
         // Validate booking doesn't conflict with existing bookings
         if (this.isNew || this.isModified('checkInTime') || this.isModified('checkOutTime')) {
             // Check for direct conflicts (overlapping times)
-            const conflictingBooking = await this.constructor.findOne({
+            const conflictingBooking = await (this.constructor as any).findOne({
                 propertyId: this.propertyId,
                 bookingStatus: { $in: ['confirmed', 'checked_in', 'extended'] },
                 _id: { $ne: this._id },
@@ -451,7 +453,7 @@ bookingSchema.pre('save', async function (next) {
             // Check 30-minute MANDATORY buffer between different users' bookings
             const bufferTimeMs = 30 * 60 * 1000; // 30 minutes in milliseconds
 
-            const bufferBookings = await this.constructor.find({
+            const bufferBookings = await (this.constructor as any).find({
                 propertyId: this.propertyId,
                 userId: { $ne: this.userId },
                 bookingStatus: { $in: ['confirmed', 'checked_in', 'completed', 'checked_out', 'extended'] },
@@ -498,8 +500,8 @@ bookingSchema.pre('save', async function (next) {
             return next(new Error('Total amount calculation is incorrect'));
         }
 
-        // Validate payment amount matches total amount for completed payments
-        if (this.paymentDetails.paymentStatus === 'completed' &&
+        // Validate payment amount matches total amount for successful payments
+        if (this.paymentDetails.paymentStatus === 'success' &&
             Math.abs(this.paymentDetails.amountPaid - this.totalAmount) > 0.01) {
             return next(new Error('Payment amount must match total booking amount'));
         }
@@ -671,15 +673,20 @@ bookingSchema.methods.processCheckIn = async function (this: IBooking, actualChe
 };
 
 bookingSchema.methods.addRatingAndReview = async function (this: IBooking, ratingData: Partial<IRatings>) {
-    this.ratings = {
+    const ratings: IRatings = {
         cleanliness: ratingData.cleanliness || 0,
         amenities: ratingData.amenities || 0,
         location: ratingData.location || 0,
         value: ratingData.value || 0,
         overall: ratingData.overall || 0,
-        reviewText: ratingData.reviewText,
         reviewDate: new Date()
     };
+    
+    if (ratingData.reviewText) {
+        ratings.reviewText = ratingData.reviewText;
+    }
+    
+    this.ratings = ratings;
 
     await this.save();
 
@@ -739,6 +746,19 @@ bookingSchema.methods.calculateRefundAmount = function (this: IBooking) {
     }
 };
 
+// Helper method to check if payment was made via wallet
+bookingSchema.methods.isWalletPayment = function (this: IBooking) {
+    return this.paymentDetails.paymentMethod === 'wallet' && this.paymentDetails.walletId;
+};
+
+// Helper method to get wallet transaction reference for booking
+bookingSchema.methods.getWalletTransactionReference = function (this: IBooking) {
+    if (this.isWalletPayment()) {
+        return this.paymentDetails.transactionReference;
+    }
+    return null;
+};
+
 // Add compound indexes for complex queries
 bookingSchema.index({
     propertyId: 1,
@@ -762,7 +782,7 @@ bookingSchema.index({
 // Text index for search functionality
 bookingSchema.index({
     bookingId: "text",
-    "paymentDetails.transactionId": "text"
+    "paymentDetails.transactionReference": "text"
 });
 
 export const Booking = mongoose.model<IBooking, IBookingModel>("Booking", bookingSchema);

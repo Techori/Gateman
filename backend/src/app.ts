@@ -10,11 +10,11 @@ import helmet from "helmet";
 import { config } from "./config/index.js";
 import userRouter from "./user/userRoute.js";
 import propertyRoute from "./property/propertyRoute.js";
-import cashfreeRoute from "./user/cashfreeRoute.js";
-import paymentRoute from "./user/paymentRoute.js";
-import walletRoute from "./user/walletRoute.js";
+import cashfreeRoute from "./payment/cashfreeRoute.js";
+import paymentRoute from "./payment/paymentRoute.js";
+import walletRoute from "./wallet/walletRoute.js";
 import serviceRoute from "./user/serviceRoute.js";
-import { walletAutoDebitRouter } from "./user/walletAutoDebitRoute.js";
+import { walletAutoDebitRouter } from "./wallet/walletAutoDebitRoute.js";
 
 const app = express();
 

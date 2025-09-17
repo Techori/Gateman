@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import type { Service } from "./walletTypes.js";
+import type { Service } from "../wallet/walletTypes.js";
 
 const serviceSchema = new mongoose.Schema<Service>(
     {

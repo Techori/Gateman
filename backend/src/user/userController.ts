@@ -155,7 +155,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
 
             // Auto-create wallet for the new user
             try {
-                const { createWallet } = await import("./walletController.js");
+                const { createWallet } = await import("../wallet/walletController.js");
                 await createWallet(newUser._id.toString());
                 console.log("Wallet created for user:", newUser._id);
             } catch (walletError) {
