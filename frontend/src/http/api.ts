@@ -92,6 +92,12 @@ const createProperty = async (formData: FormData) => {
     return response.data;
 };
 
+// get user profile
+const getUserProfile = async () => {
+    const res = await api.get('/api/v1/users/userProfile');
+    return res.data;
+};
+
 // Get user properties
 const getUserProperties = async (params?: {
     page?: number;
@@ -162,5 +168,6 @@ export {
     logoutUserBySessionId,
     fecthAllOwnerProperty,
     fecthAllOwnerPropertyWithType,
-    logoutUser
+    logoutUser,
+    getUserProfile
 }
