@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getUserProfile } from "@/http/api";
-import type { AxiosError } from "axios";
+// import type { AxiosError } from "axios";
 import { deleteUser, updateAccessToken } from "@/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
@@ -21,6 +21,9 @@ const UserProfilePage = () => {
     userProfileUrl: "",
   });
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // Fetch user profile data using React Query
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["userProfile"],
@@ -67,7 +70,10 @@ const UserProfilePage = () => {
 
   // handle loading and error states
   if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading profile</div>;
+  if (error) {
+    console.error("Error fetching user profile:", error);
+    return <div>Error loading profile. Please try again later.</div>;
+  }
 
   // const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   //   const { name, value } = e.target;
@@ -185,6 +191,7 @@ const UserProfilePage = () => {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 };
