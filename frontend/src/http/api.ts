@@ -92,6 +92,18 @@ const createProperty = async (formData: FormData) => {
     return response.data;
 };
 
+// update user profile image
+
+const updateUserProfileImage = async(formData:FormData)=>{
+    const response = await api.post(`/api/v1/users/uploadUserProfileImage`, formData,{
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    
+    return response.data;
+}
+
 // get user profile
 const getUserProfile = async () => {
     const res = await api.get('/api/v1/users/userProfile');
@@ -169,5 +181,6 @@ export {
     fecthAllOwnerProperty,
     fecthAllOwnerPropertyWithType,
     logoutUser,
-    getUserProfile
+    getUserProfile,
+    updateUserProfileImage
 }
