@@ -4,11 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getUserProfile, updateUserProfileImage } from "@/http/api";
-import { updateAccessToken } from "@/features/auth/authSlice";
+import { getUserProfile, logoutUserBySessionId, updateUserProfileImage } from "@/http/api";
+import { deleteUser, updateAccessToken } from "@/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
 import { toast, ToastContainer } from "react-toastify";
+import type { AxiosError } from "axios";
 
 // Zod schema for profile image upload
 const profileImageSchema = z.object({
@@ -27,6 +28,9 @@ const profileImageSchema = z.object({
 
 type ProfileImageForm = z.infer<typeof profileImageSchema>;
 
+interface ErrorResponse {
+  message: string;
+}
 interface UserProfileData {
   name: string;
   role: string;
@@ -129,11 +133,45 @@ const UserProfilePage = () => {
         toast.error("Failed to update profile image");
       }
     },
-    onError: (error: any) => {
-      console.error("Profile image upload error:", error);
-      const errorMessage = error?.response?.data?.message || "Failed to upload profile image";
-      toast.error(errorMessage);
-    },
+    onError: async (err: AxiosError<ErrorResponse>) => {
+          console.log("Error creating property:", err);
+          const message =
+            err.response?.data?.message ||
+            "Failed to create property. Please try again.";
+          toast.error(message);
+    
+          // Only logout user if refresh token is expired/invalid (not just access token)
+          if (err.response?.status === 401) {
+            console.log("err.response?.status :", err.response?.status);
+    
+            // Check if the error message indicates refresh token issues
+            const errorMessage = err.response?.data?.message?.toLowerCase() || "";
+            const isRefreshTokenError =
+              errorMessage.includes("refresh token") ||
+              errorMessage.includes("session expired") ||
+              errorMessage.includes("session mismatch") ||
+              errorMessage.includes("please log in again") ||
+              errorMessage.includes("invalid or expired refresh token");
+    
+            // Only logout if it's a refresh token related error
+            if (isRefreshTokenError) {
+              const userSessionData = JSON.parse(
+                sessionStorage.getItem("user") || `{}`
+              );
+              const id = userSessionData.id;
+              const sessionId = userSessionData.sessionId;
+              dispatch(deleteUser());
+              sessionStorage.clear();
+              await logoutUserBySessionId({ id, sessionId });
+              navigate("/auth/login");
+            }
+          }
+        },
+    // onError: (err: AxiosError<ErrorResponse>) => {
+    //   console.error("Profile image upload error:", err);
+    //   const errorMessage = error?.response?.data?.message || "Failed to upload profile image";
+    //   toast.error(errorMessage);
+    // },
   });
 
   // Handle profile data updates
@@ -343,7 +381,7 @@ const UserProfilePage = () => {
               
               {errors.userProfileImage && (
                 <p className="text-xs text-red-600">
-                  {errors.userProfileImage.message}
+                  {typeof errors.userProfileImage?.message === "string" ? errors.userProfileImage.message : ""}
                 </p>
               )}
             </div>
@@ -377,9 +415,9 @@ const UserProfilePage = () => {
             <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 flex items-center justify-between">
               <span>{profileData.email || "N/A"}</span>
               {profileData.isEmailVerified ? (
-                <CheckCircle className="w-5 h-5 text-green-500" title="Verified" />
+                <><CheckCircle className="w-5 h-5 text-green-500" /><span className="sr-only">Verified</span></>
               ) : (
-                <XCircle className="w-5 h-5 text-red-500" title="Not Verified" />
+                <><XCircle className="w-5 h-5 text-red-500" /><span className="sr-only">Not Verified</span></>
               )}
             </div>
           </div>
