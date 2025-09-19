@@ -107,10 +107,16 @@ const UserProfilePage = () => {
     mutationKey: ["updateUserProfileImage"],
     mutationFn: updateUserProfileImage,
     onSuccess: (data) => {
+      // log success message
+      console.log("************************************");
+      
+      console.log("Profile image updated successfully:", data);
       if (data.success) {
         toast.success("Profile image updated successfully!");
 
         // Handle token updates if needed
+        console.log("data on profile image update:", data);
+        
         if (data.isAccessTokenExp && data.accessToken) {
           dispatch(updateAccessToken(data.accessToken));
 
@@ -198,6 +204,9 @@ const UserProfilePage = () => {
   // Handle profile data updates
   useEffect(() => {
     if (data && data.data) {
+      // log fetched data
+      console.log("************************************");
+      console.log("Fetched user profile data: user", data);
       const userData = data.data;
       setProfileData({
         name: userData.name || "",
@@ -211,14 +220,17 @@ const UserProfilePage = () => {
         id: userData.id || "",
         createdAt: userData.createdAt || "",
         updatedAt: userData.updatedAt || "",
+
         ...(userData.employeeDetails && {
           employeeDetails: userData.employeeDetails,
         }),
       });
 
       // Handle token refresh if needed
-      if (data.isAccessTokenExp) {
-        const { accessToken, refreshToken } = data;
+      if (data.data.isAccessTokenExp) {
+        const { accessToken, refreshToken } = data.data;
+        console.log("Access token expired, refreshing tokens...");
+        
         if (accessToken && refreshToken) {
           const userSessionData = JSON.parse(
             sessionStorage.getItem("user") || "{}"
@@ -230,6 +242,8 @@ const UserProfilePage = () => {
         }
 
         if (accessToken) {
+          console.log("Dispatching updated access token to Redux store");
+          
           dispatch(updateAccessToken(accessToken));
           const userSessionData = JSON.parse(
             sessionStorage.getItem("user") || "{}"
