@@ -53,9 +53,11 @@ const LoginForm = () => {
       console.log("login response :", response);
       console.log("response.data :", response.data);
       console.log("response.data.userDetails :", response.data.userDetails);
-      const { id, name, email, role, isEmailVerified } =
+      const { id, name, email, role, isEmailVerified, userProfileUrl, phoneNumber } =
         response.data.userDetails;
       const { accessToken, refreshToken, sessionId } = response.data;
+      console.log("User Profile URL:", userProfileUrl);
+      console.log("Phone Number:", phoneNumber);
       // console.log("id,name,email,role,isEmailVerified",id,name,email,role,isEmailVerified);
       // console.log("accessToken,refreshToken,sessionId",accessToken,refreshToken,sessionId);
       dispatch(
@@ -69,8 +71,8 @@ const LoginForm = () => {
           role,
           isEmailVerified,
           sessionId,
-          userProfileUrl: response.data.userDetails.userProfileUrl || "",
-          phoneNumber: response.data.userDetails.phoneNumber || ""
+          userProfileUrl: userProfileUrl || "",
+          phoneNumber: phoneNumber || ""
         })
       );
       const user = {
