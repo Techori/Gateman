@@ -1,11 +1,22 @@
 import { useEffect, useState } from "react";
-import { User, Upload, Camera, Loader2, CheckCircle, XCircle } from "lucide-react";
+import {
+  User,
+  Upload,
+  Camera,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getUserProfile, logoutUserBySessionId, updateUserProfileImage } from "@/http/api";
-import { deleteUser, updateAccessToken } from "@/features/auth/authSlice";
+import {
+  getUserProfile,
+  logoutUserBySessionId,
+  updateUserProfileImage,
+} from "@/http/api";
+import { deleteUser, updateAccessToken, updateUserProfileUrl } from "@/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
 import { toast, ToastContainer } from "react-toastify";
@@ -21,7 +32,8 @@ const profileImageSchema = z.object({
       "File size should be less than 5MB"
     )
     .refine(
-      (files) => ["image/jpeg", "image/png", "image/jpg"].includes(files?.[0]?.type),
+      (files) =>
+        ["image/jpeg", "image/png", "image/jpg"].includes(files?.[0]?.type),
       "Only JPG, JPEG, and PNG files are allowed"
     ),
 });
@@ -87,8 +99,7 @@ const UserProfilePage = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["userProfile"],
     queryFn: getUserProfile,
-    // staleTime: 5 * 60 * 1000, // 5 minutes
-    // cacheTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Profile image upload mutation
@@ -98,34 +109,44 @@ const UserProfilePage = () => {
     onSuccess: (data) => {
       if (data.success) {
         toast.success("Profile image updated successfully!");
-        
+
         // Handle token updates if needed
         if (data.isAccessTokenExp && data.accessToken) {
           dispatch(updateAccessToken(data.accessToken));
-          
+
           // Update session storage
           const userSessionData = JSON.parse(
             sessionStorage.getItem("user") || "{}"
           );
           userSessionData.accessToken = data.accessToken;
-          
+
           if (data.refreshToken) {
             userSessionData.refreshToken = data.refreshToken;
           }
-          
+
           sessionStorage.removeItem("user");
           sessionStorage.setItem("user", JSON.stringify(userSessionData));
         }
 
         // Update profile data with new image URL
-        setProfileData(prev => ({
+        setProfileData((prev) => ({
           ...prev,
-          userProfileUrl: data.data.userProfileUrl
+          userProfileUrl: data.data.userProfileUrl,
         }));
 
         // Invalidate and refetch profile data
         queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-        
+        // update userProfileUrl in auth slice and session storage
+        dispatch(
+          updateUserProfileUrl({ userProfileUrl: data.data.userProfileUrl })
+        );
+        const userSessionData = JSON.parse(
+          sessionStorage.getItem("user") || "{}"
+        );
+        userSessionData.userProfileUrl = data.data.userProfileUrl;
+        sessionStorage.removeItem("user");
+        sessionStorage.setItem("user", JSON.stringify(userSessionData));
+
         // Reset form and preview
         reset();
         setImagePreview("");
@@ -134,39 +155,39 @@ const UserProfilePage = () => {
       }
     },
     onError: async (err: AxiosError<ErrorResponse>) => {
-          console.log("Error creating property:", err);
-          const message =
-            err.response?.data?.message ||
-            "Failed to create property. Please try again.";
-          toast.error(message);
-    
-          // Only logout user if refresh token is expired/invalid (not just access token)
-          if (err.response?.status === 401) {
-            console.log("err.response?.status :", err.response?.status);
-    
-            // Check if the error message indicates refresh token issues
-            const errorMessage = err.response?.data?.message?.toLowerCase() || "";
-            const isRefreshTokenError =
-              errorMessage.includes("refresh token") ||
-              errorMessage.includes("session expired") ||
-              errorMessage.includes("session mismatch") ||
-              errorMessage.includes("please log in again") ||
-              errorMessage.includes("invalid or expired refresh token");
-    
-            // Only logout if it's a refresh token related error
-            if (isRefreshTokenError) {
-              const userSessionData = JSON.parse(
-                sessionStorage.getItem("user") || `{}`
-              );
-              const id = userSessionData.id;
-              const sessionId = userSessionData.sessionId;
-              dispatch(deleteUser());
-              sessionStorage.clear();
-              await logoutUserBySessionId({ id, sessionId });
-              navigate("/auth/login");
-            }
-          }
-        },
+      console.log("Error creating property:", err);
+      const message =
+        err.response?.data?.message ||
+        "Failed to create property. Please try again.";
+      toast.error(message);
+
+      // Only logout user if refresh token is expired/invalid (not just access token)
+      if (err.response?.status === 401) {
+        console.log("err.response?.status :", err.response?.status);
+
+        // Check if the error message indicates refresh token issues
+        const errorMessage = err.response?.data?.message?.toLowerCase() || "";
+        const isRefreshTokenError =
+          errorMessage.includes("refresh token") ||
+          errorMessage.includes("session expired") ||
+          errorMessage.includes("session mismatch") ||
+          errorMessage.includes("please log in again") ||
+          errorMessage.includes("invalid or expired refresh token");
+
+        // Only logout if it's a refresh token related error
+        if (isRefreshTokenError) {
+          const userSessionData = JSON.parse(
+            sessionStorage.getItem("user") || `{}`
+          );
+          const id = userSessionData.id;
+          const sessionId = userSessionData.sessionId;
+          dispatch(deleteUser());
+          sessionStorage.clear();
+          await logoutUserBySessionId({ id, sessionId });
+          navigate("/auth/login");
+        }
+      }
+    },
     // onError: (err: AxiosError<ErrorResponse>) => {
     //   console.error("Profile image upload error:", err);
     //   const errorMessage = error?.response?.data?.message || "Failed to upload profile image";
@@ -191,8 +212,8 @@ const UserProfilePage = () => {
         createdAt: userData.createdAt || "",
         updatedAt: userData.updatedAt || "",
         ...(userData.employeeDetails && {
-          employeeDetails: userData.employeeDetails
-        })
+          employeeDetails: userData.employeeDetails,
+        }),
       });
 
       // Handle token refresh if needed
@@ -207,7 +228,7 @@ const UserProfilePage = () => {
           sessionStorage.removeItem("user");
           sessionStorage.setItem("user", JSON.stringify(userSessionData));
         }
-        
+
         if (accessToken) {
           dispatch(updateAccessToken(accessToken));
           const userSessionData = JSON.parse(
@@ -291,9 +312,12 @@ const UserProfilePage = () => {
           <div className="flex items-center space-x-3">
             <XCircle className="w-6 h-6 text-red-500" />
             <div>
-              <h3 className="text-red-800 font-medium">Error Loading Profile</h3>
+              <h3 className="text-red-800 font-medium">
+                Error Loading Profile
+              </h3>
               <p className="text-red-600 text-sm mt-1">
-                Please try again later or contact support if the problem persists.
+                Please try again later or contact support if the problem
+                persists.
               </p>
               <button
                 onClick={() => refetch()}
@@ -345,7 +369,7 @@ const UserProfilePage = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex space-x-2">
                 <label className="relative cursor-pointer">
@@ -360,7 +384,7 @@ const UserProfilePage = () => {
                     Choose Photo
                   </span>
                 </label>
-                
+
                 {imagePreview && (
                   <button
                     onClick={handleSubmit(onSubmit)}
@@ -376,12 +400,14 @@ const UserProfilePage = () => {
                   </button>
                 )}
               </div>
-              
+
               <p className="text-xs text-gray-500">JPG, PNG up to 5MB</p>
-              
+
               {errors.userProfileImage && (
                 <p className="text-xs text-red-600">
-                  {typeof errors.userProfileImage?.message === "string" ? errors.userProfileImage.message : ""}
+                  {typeof errors.userProfileImage?.message === "string"
+                    ? errors.userProfileImage.message
+                    : ""}
                 </p>
               )}
             </div>
@@ -415,9 +441,15 @@ const UserProfilePage = () => {
             <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 flex items-center justify-between">
               <span>{profileData.email || "N/A"}</span>
               {profileData.isEmailVerified ? (
-                <><CheckCircle className="w-5 h-5 text-green-500" /><span className="sr-only">Verified</span></>
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="sr-only">Verified</span>
+                </>
               ) : (
-                <><XCircle className="w-5 h-5 text-red-500" /><span className="sr-only">Not Verified</span></>
+                <>
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  <span className="sr-only">Not Verified</span>
+                </>
               )}
             </div>
           </div>
@@ -437,11 +469,13 @@ const UserProfilePage = () => {
                 Account Status
               </label>
               <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  profileData.status === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    profileData.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
                   {profileData.status || "N/A"}
                 </span>
               </div>

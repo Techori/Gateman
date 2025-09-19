@@ -9,6 +9,8 @@ export interface AuthState {
     role: string,
     sessionId: string,
     isEmailVerified: boolean,
+    userProfileUrl?: string,
+    phoneNumber?: string
 }
 const initialState: AuthState = {
     isLogin: false,
@@ -19,7 +21,9 @@ const initialState: AuthState = {
     useremail: "",
     role: "",
     sessionId: "",
-    isEmailVerified: false
+    isEmailVerified: false,
+    userProfileUrl: "",
+    phoneNumber: ""
 }
 
 export const authSlice = createSlice({
@@ -27,7 +31,7 @@ export const authSlice = createSlice({
     initialState,
     reducers: {
         addUserDetails: (state, action) => {
-            const { isLogin, accessToken, refreshToken, userId, useremail, userName, role, sessionId, isEmailVerified } = action.payload
+            const { isLogin, accessToken, refreshToken, userId, useremail, userName, role, sessionId, isEmailVerified, userProfileUrl, phoneNumber } = action.payload
             state.isLogin = isLogin
             state.accessToken = accessToken
             state.refreshToken = refreshToken
@@ -37,6 +41,8 @@ export const authSlice = createSlice({
             state.role = role
             state.sessionId = sessionId
             state.isEmailVerified = isEmailVerified
+            state.userProfileUrl = userProfileUrl
+            state.phoneNumber = phoneNumber
         },
         updateAccessToken: (state, action) => {
             const { accessToken } = action.payload
@@ -53,8 +59,12 @@ export const authSlice = createSlice({
             state.sessionId = ""
             state.isEmailVerified = false
         },
+        updateUserProfileUrl: (state, action) => {
+            const { userProfileUrl } = action.payload
+            state.userProfileUrl = userProfileUrl
+        }
     }
 })
 
-export const { addUserDetails, deleteUser, updateAccessToken } = authSlice.actions
+export const { addUserDetails, deleteUser, updateAccessToken, updateUserProfileUrl } = authSlice.actions
 export default authSlice.reducer
