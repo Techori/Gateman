@@ -116,18 +116,18 @@ const UserProfilePage = () => {
 
         // Handle token updates if needed
         console.log("data on profile image update:", data);
-        
-        if (data.isAccessTokenExp && data.accessToken) {
-          dispatch(updateAccessToken(data.accessToken));
+
+        if (data.data.isAccessTokenExp && data.data.accessToken) {
+          dispatch(updateAccessToken(data.data.accessToken));
 
           // Update session storage
           const userSessionData = JSON.parse(
             sessionStorage.getItem("user") || "{}"
           );
-          userSessionData.accessToken = data.accessToken;
+          userSessionData.accessToken = data.data.accessToken;
 
-          if (data.refreshToken) {
-            userSessionData.refreshToken = data.refreshToken;
+          if (data.data.refreshToken) {
+            userSessionData.refreshToken = data.data.refreshToken;
           }
 
           sessionStorage.removeItem("user");
