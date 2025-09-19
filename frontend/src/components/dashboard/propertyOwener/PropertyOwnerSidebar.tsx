@@ -5,7 +5,7 @@ import {
   Plus,
   User,
   UserPlus,
-  Settings,
+  // Settings,
   LogOut,
   ChevronDown,
 } from "lucide-react";
@@ -67,14 +67,14 @@ const navigation = [
 ];
 
 // Mock user data - replace with real user data from your auth context
-const user = {
-  name: "Property Owner",
-  email: "owner@example.com",
-  avatar: null,
-};
+// user data should come from session storage or context
 
 export function PropertyOwnerSidebar() {
   const [sessionId, setSessionId] = useState("");
+  const [userName, setUserName] = useState("Property Owner");
+  const [userEmail, setUserEmail] = useState("owner@example.com");
+  const [userAvatar, setUserAvatar] = useState(null);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -85,11 +85,21 @@ export function PropertyOwnerSidebar() {
       "Retrieve user data from sessionStorage: sessionId",
       userData.sessionId
     );
+    console.log("user pic", userData.email);
+    setUserEmail(userData.email);
+    setUserName(userData.name);
+    setUserAvatar(userData.userProfileUrl);
     setSessionId(userData.sessionId);
     if (!userData.sessionId) {
       navigate("/", { replace: true });
     }
   }, [navigate]);
+
+  const user = {
+    name: userName,
+    email: userEmail,
+    avatar: userAvatar,
+  };
 
   const mutation = useMutation({
     mutationFn: logoutUser,
@@ -102,7 +112,8 @@ export function PropertyOwnerSidebar() {
     },
     onError: (error) => {
       console.error("Logout error:", error);
-      // You might want to show an error message to the user
+      // toast error message
+      alert("Error logging out. Please try again.");
     },
   });
 
@@ -204,12 +215,12 @@ export function PropertyOwnerSidebar() {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                {/* <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50"
                   onClick={handleLogout}
                   disabled={mutation.isPending}
