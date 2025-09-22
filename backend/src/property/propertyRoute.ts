@@ -25,7 +25,8 @@ import {
     getAllVerifiedPropertiesByDistance,
     getOwnerPropertiesWithAdvancedFilter,
     getAllVerifiedPropertiesWithAdvancedFilter,
-    updateProperty
+    updateProperty,
+    allOwnerPropertyNameAndId
 } from "./propertyController.js";
 
 const propertyRoute = express.Router();
@@ -80,6 +81,7 @@ propertyRoute.post("/owner/all-properties-byTypeAndVerificationStatus", authenti
 propertyRoute.post("/owner/all-properties-byVerificationStatus", authenticate, getOwnerPropertyByVerificationStatusWithPagination);
 propertyRoute.post("/owner/all-properties-byCityName", authenticate, getOwnerPropertyByCityNameWithPagination);
 propertyRoute.post("/owner/all-properties-byCityNameAndType", authenticate, getOwnerPropertyByCityAndTypeWithPagination);
+propertyRoute.get("/owner/all-properties-nameAndId", authenticate, allOwnerPropertyNameAndId);
 
 // For property owners - authentication required
 propertyRoute.post("/owner/all-properties-by-price-range", authenticate, getOwnerPropertiesByPriceRange);

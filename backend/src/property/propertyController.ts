@@ -480,18 +480,19 @@ const allPropertyOfOwner = async (req: Request, res: Response, next: NextFunctio
             await user.save({ validateBeforeSave: false });
             console.log(" user id", user._id);
 
-            //  find all owner property
-            const allProperties = await Property.find({ ownerId: user._id }).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
-            if (allProperties) {
-                res.status(200).json({
-                    success: true,
-                    message: "Fetch all owner property",
-                    allProperties,
-                    isAccessTokenExp,
-                    accessToken: isAccessTokenExp ? newAccessToken : null,
-                    refreshToken: newRefreshToken ? newRefreshToken : null
-                })
-            }
+
+        }
+        //  find all owner property
+        const allProperties = await Property.find({ ownerId: user._id }).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        if (allProperties) {
+            res.status(200).json({
+                success: true,
+                message: "Fetch all owner property",
+                allProperties,
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: newRefreshToken ? newRefreshToken : null
+            })
         }
     } catch (error) {
         if (error instanceof ZodError) {
@@ -501,6 +502,67 @@ const allPropertyOfOwner = async (req: Request, res: Response, next: NextFunctio
         if (error instanceof Error) {
             return next(createHttpError(500, error.message));
         }
+        console.error("Get all property error:", error);
+        next(createHttpError(500, "Internal server error while fetching property"));
+    }
+}
+
+//  get all proterty name and id of property owner (only for property owner ) 
+const allOwnerPropertyNameAndId = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        // Validate user
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        if (!user.isEmailVerify) {
+            return next(createHttpError(401, "User email is not verified"));
+        }
+
+        // only user role = propertyOwener is allowed
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(401, "You are not allowed for this request"));
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+        }
+        const allPropertyOfOwner = await Property.find({ ownerId: _id }).select("name _id")
+        if (allPropertyOfOwner) {
+            res.status(200).json({
+                success: true,
+                message: "Fetch all owner property",
+                allPropertyOfOwner,
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: newRefreshToken ? newRefreshToken : null
+            })
+        }
+
+    } catch (error) {
         console.error("Get all property error:", error);
         next(createHttpError(500, "Internal server error while fetching property"));
     }
@@ -2018,17 +2080,17 @@ const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Res
     try {
         // Validate request body
         const validatedData = advancedFilterSchema.parse(req.body);
-        const { 
-            metroDistance, 
-            busStopDistance, 
-            railwayDistance, 
-            city, 
-            type, 
-            lowestPrice, 
-            highestPrice, 
-            hasParking, 
-            page, 
-            limit 
+        const {
+            metroDistance,
+            busStopDistance,
+            railwayDistance,
+            city,
+            type,
+            lowestPrice,
+            highestPrice,
+            hasParking,
+            page,
+            limit
         } = validatedData;
 
         const skip = (page - 1) * limit;
@@ -2094,7 +2156,7 @@ const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Res
         // Add price range conditions
         if (lowestPrice !== undefined || highestPrice !== undefined) {
             const priceConditions = [];
-            
+
             const priceQuery: any = {};
             if (lowestPrice !== undefined) priceQuery.$gte = lowestPrice;
             if (highestPrice !== undefined) priceQuery.$lte = highestPrice;
@@ -2124,7 +2186,7 @@ const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Res
         // Execute query with sorting by price (ascending)
         const allProperties = await Property.find(baseQuery)
             .populate('ownerId', 'name email phoneNumber')
-            .sort({ 
+            .sort({
                 cost: 1, // Primary sort by cost (ascending)
                 "pricing.hourlyRate": 1, // Secondary sort by hourly rate
                 createdAt: -1 // Tertiary sort by creation date
@@ -2179,7 +2241,7 @@ const getAllVerifiedPropertiesWithAdvancedFilter = async (req: Request, res: Res
 // controller for update property - only owner can update their property and only certain fields can be updated by owner without admin intervention.
 const updateProperty = async (req: Request, res: Response, next: NextFunction) => {
     const filesToDelete: string[] = []; // Track files to delete
-    
+
     try {
         const propertyId = req.params.propertyId;
         console.log('Property ID:', propertyId);
@@ -2289,7 +2351,7 @@ const updateProperty = async (req: Request, res: Response, next: NextFunction) =
         // Handle new property images if provided
         let newImageUrls: string[] = [];
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        
+
         if (files && files.propertyImage && files.propertyImage.length > 0) {
             const propertyImages = files.propertyImage;
 
@@ -2345,14 +2407,14 @@ const updateProperty = async (req: Request, res: Response, next: NextFunction) =
                             const filename = lastPart ? lastPart.split('.')[0] : "";
                             const folder = urlParts[urlParts.length - 2];
                             const publicId = `${folder}/${filename}`;
-                            
+
                             console.log("Deleting old image:", publicId);
                             await cloudinary.uploader.destroy(publicId);
                         } catch (error) {
                             console.error("Error deleting old image:", error);
                         }
                     });
-                    
+
                     await Promise.all(deletePromises);
                 }
 
@@ -2365,7 +2427,7 @@ const updateProperty = async (req: Request, res: Response, next: NextFunction) =
         // Process pricing data with validation
         if (allowedUpdates.pricing) {
             const pricingData = allowedUpdates.pricing;
-            
+
             // Validate that at least one pricing option is provided
             if (!pricingData.hourlyRate && !pricingData.dailyRate &&
                 !pricingData.weeklyRate && !pricingData.monthlyRate) {
@@ -2513,5 +2575,6 @@ export {
     getAllVerifiedPropertiesByDistance,
     getOwnerPropertiesWithAdvancedFilter,
     getAllVerifiedPropertiesWithAdvancedFilter,
-    updateProperty
+    updateProperty,
+    allOwnerPropertyNameAndId
 };
