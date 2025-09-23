@@ -61,11 +61,16 @@ const logoutUser = async (sessionId: string) => {
     return res.data;
 }
 const fecthAllOwnerProperty = async (data:{page:number,limit:number})=>{
-    const res = await api.post('/owner/all-properties',data)
+    const res = await api.post('/api/v1/properties/owner/all-properties',data)
     return res.data
 }
 const fecthAllOwnerPropertyWithType = async (data:{page:number,limit:number,type:string})=>{
     const res = await api.post('/owner/all-properties',data)
+    return res.data
+}
+
+const fetchAllOwnerPropertyWithNameAndId = async()=>{
+    const res = await api.get('/api/v1/properties/owner/all-properties-nameAndId')
     return res.data
 }
 
@@ -180,6 +185,7 @@ export {
     logoutUserBySessionId,
     fecthAllOwnerProperty,
     fecthAllOwnerPropertyWithType,
+    fetchAllOwnerPropertyWithNameAndId,
     logoutUser,
     getUserProfile,
     updateUserProfileImage
