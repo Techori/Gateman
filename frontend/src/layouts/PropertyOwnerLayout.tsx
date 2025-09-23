@@ -52,7 +52,7 @@ const PropertyOwnerLayout: React.FC = () => {
               <Separator orientation="vertical" className="mr-2 h-4" />
               <Breadcrumb>
                 <BreadcrumbList>
-                  {breadcrumbItems.map((item, index) => (
+                  {breadcrumbItems.map((item) => (
                     <React.Fragment key={item.path}>
                       <BreadcrumbItem className="hidden md:block">
                         {item.isLast ? (

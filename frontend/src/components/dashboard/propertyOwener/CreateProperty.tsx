@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+// import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -584,7 +584,7 @@ const CreateProperty = () => {
       {/* Header */}
       <header className="flex h-16 shrink-0 items-center gap-2 bg-white border-b px-6">
         <div className="flex items-center gap-2">
-          <SidebarTrigger className="-ml-8" />
+          {/* <SidebarTrigger className="-ml-8" /> */}
           <Separator orientation="vertical" className="mr-1 h-4" />
           <h1 className="text-lg font-semibold">Create New Property</h1>
         </div>

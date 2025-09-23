@@ -41,7 +41,7 @@ import { useEffect, useState } from "react";
 const navigation = [
   {
     title: "Dashboard",
-    url: "/propertyOwner/dashboard",
+    url: "/propertyOwner/",
     icon: Home,
   },
   {

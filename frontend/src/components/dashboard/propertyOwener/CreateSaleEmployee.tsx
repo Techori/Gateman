@@ -19,7 +19,7 @@ import { createEmployee, fetchAllOwnerPropertyWithNameAndId, logoutUserBySession
 import { useDispatch } from "react-redux";
 import { deleteUser, updateAccessToken } from "@/features/auth/authSlice";
 import { useNavigate } from "react-router";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+// import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
 
 interface FormFields {
@@ -239,7 +239,7 @@ const CreateSaleEmployee = () => {
       {/* Fixed Header */}
       <header className="flex h-16 shrink-0 items-center gap-2 bg-white border-b px-6 shadow-sm">
         <div className="flex items-center gap-2">
-          <SidebarTrigger className="-ml-1" />
+          {/* <SidebarTrigger className="-ml-1" /> */}
           <Separator orientation="vertical" className="mr-2 h-4 bg-gray-300" />
         </div>
         <div className="flex items-center gap-3">
