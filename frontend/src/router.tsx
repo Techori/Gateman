@@ -43,7 +43,7 @@ const router = createBrowserRouter([
     element: <PropertyOwnerLayout />,
     children: [
       {
-        path: "dashboard",
+        path: "",
         element: <PropertyOwnerDashboard />
       },
       {
