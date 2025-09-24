@@ -53,9 +53,11 @@ const LoginForm = () => {
       console.log("login response :", response);
       console.log("response.data :", response.data);
       console.log("response.data.userDetails :", response.data.userDetails);
-      const { id, name, email, role, isEmailVerified } =
+      const { id, name, email, role, isEmailVerified, userProfileUrl, phoneNumber } =
         response.data.userDetails;
       const { accessToken, refreshToken, sessionId } = response.data;
+      console.log("User Profile URL:", userProfileUrl);
+      console.log("Phone Number:", phoneNumber);
       // console.log("id,name,email,role,isEmailVerified",id,name,email,role,isEmailVerified);
       // console.log("accessToken,refreshToken,sessionId",accessToken,refreshToken,sessionId);
       dispatch(
@@ -69,6 +71,8 @@ const LoginForm = () => {
           role,
           isEmailVerified,
           sessionId,
+          userProfileUrl: userProfileUrl || "",
+          phoneNumber: phoneNumber || ""
         })
       );
       const user = {
@@ -80,6 +84,8 @@ const LoginForm = () => {
         accessToken,
         refreshToken,
         sessionId,
+        userProfileUrl: response.data.userDetails.userProfileUrl || "",
+        phoneNumber: response.data.userDetails.phoneNumber || ""
       };
       sessionStorage.setItem("user", JSON.stringify(user));
       const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -89,6 +95,9 @@ const LoginForm = () => {
         userData.accessToken
       );
       // TODO: ADD NAVIGATE ACCORDING TO ROLE
+      if (role === "propertyOwener") {
+        navigate("/propertyOwner", { replace: true });
+      }
     },
     onError: (err: AxiosError<ErrorResponse>) => {
       console.log("error on login", err.response?.data.message);
@@ -109,6 +118,7 @@ const LoginForm = () => {
             <p className="text-muted-foreground text-sm text-balance">
               Enter your email below to login to your account
             </p>
+            <span className="text-sm text-red-600 font-medium">{errMsg}</span>
           </div>
           <div className="grid gap-6">
             <FormField
