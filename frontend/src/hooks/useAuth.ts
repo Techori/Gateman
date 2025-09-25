@@ -2,11 +2,12 @@
 import { useDispatch, useSelector } from "react-redux"
 import type { RootState } from "../app/store"
 import { addUserDetails } from "../features/auth/authSlice"
-import { useNavigate } from "react-router"
+import { useNavigate, useLocation } from "react-router"
 import { useEffect } from "react"
 
 const useAuth = () => {
     const navigate = useNavigate()
+    const location = useLocation()
     const userData = useSelector((state: RootState) => state.auth)
     const dispatch = useDispatch()
 
@@ -33,19 +34,15 @@ const useAuth = () => {
                     navigate('/', { replace: true })
 
                 } else {
-                    
-
-                    navigate('/auth/login', { replace: true })
-
+                    // Only redirect to login if not already on an auth page
+                    if (!location.pathname.startsWith('/auth')) {
+                        navigate('/auth/login', { replace: true })
+                    }
                 }
             }
-
-
         }
         checkAuth()
-    }, [dispatch, navigate, userData.accessToken, userData.isLogin])
-
-
+    }, [dispatch, navigate, location.pathname, userData.accessToken, userData.isLogin])
 }
 
 export default useAuth

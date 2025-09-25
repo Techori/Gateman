@@ -1,8 +1,14 @@
-import React from 'react'
-import { SidebarTrigger } from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, DollarSign, TrendingUp } from 'lucide-react'
+import React from "react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Building2, Users, DollarSign, TrendingUp } from "lucide-react";
 
 // Mock data - replace with real data from your API
 const dashboardStats = {
@@ -10,7 +16,7 @@ const dashboardStats = {
   totalEmployees: 5,
   monthlyRevenue: 45000,
   occupancyRate: 85,
-}
+};
 
 const PropertyOwnerDashboard: React.FC = () => {
   return (
@@ -38,11 +44,15 @@ const PropertyOwnerDashboard: React.FC = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Properties
+              </CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardStats.totalProperties}</div>
+              <div className="text-2xl font-bold">
+                {dashboardStats.totalProperties}
+              </div>
               <p className="text-xs text-muted-foreground">
                 +2 from last month
               </p>
@@ -51,11 +61,15 @@ const PropertyOwnerDashboard: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sales Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Sales Employees
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardStats.totalEmployees}</div>
+              <div className="text-2xl font-bold">
+                {dashboardStats.totalEmployees}
+              </div>
               <p className="text-xs text-muted-foreground">
                 +1 from last month
               </p>
@@ -64,7 +78,9 @@ const PropertyOwnerDashboard: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Monthly Revenue
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -79,11 +95,15 @@ const PropertyOwnerDashboard: React.FC = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Occupancy Rate
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dashboardStats.occupancyRate}%</div>
+              <div className="text-2xl font-bold">
+                {dashboardStats.occupancyRate}%
+              </div>
               <p className="text-xs text-muted-foreground">
                 +5% from last month
               </p>
@@ -96,16 +116,16 @@ const PropertyOwnerDashboard: React.FC = () => {
           <Card className="col-span-4">
             <CardHeader>
               <CardTitle>Recent Properties</CardTitle>
-              <CardDescription>
-                Your recently added properties
-              </CardDescription>
+              <CardDescription>Your recently added properties</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
               <div className="space-y-4">
                 {/* Mock recent properties */}
                 <div className="flex items-center">
                   <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">Sunset Villa</p>
+                    <p className="text-sm font-medium leading-none">
+                      Sunset Villa
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       Added 2 days ago • $2,500/month
                     </p>
@@ -113,7 +133,9 @@ const PropertyOwnerDashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center">
                   <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">Downtown Apartment</p>
+                    <p className="text-sm font-medium leading-none">
+                      Downtown Apartment
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       Added 5 days ago • $1,800/month
                     </p>
@@ -121,7 +143,9 @@ const PropertyOwnerDashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center">
                   <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">Garden House</p>
+                    <p className="text-sm font-medium leading-none">
+                      Garden House
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       Added 1 week ago • $3,200/month
                     </p>
@@ -158,7 +182,7 @@ const PropertyOwnerDashboard: React.FC = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default PropertyOwnerDashboard
+export default PropertyOwnerDashboard;
