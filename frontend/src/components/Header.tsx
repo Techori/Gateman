@@ -12,7 +12,7 @@ const Header = () => {
           <Link to={"/auth/login"}>Login</Link>
         </Button>
         <Button>
-          <Link to={"/auth/register"}>register</Link>
+          <Link to={"/auth/register"}>Register</Link>
         </Button>
       </div>
     </nav>

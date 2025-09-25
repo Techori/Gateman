@@ -40,6 +40,10 @@ const formSchema = z.object({
   role: z.enum(["client", "propertyOwener"], {
     message: "Please select either 'Client' or 'Property Owner'.",
   }),
+    phoneNumber: z.string()
+    .min(10, { message: "Phone number must be at least 10 digits." })
+    .max(15, { message: "Phone number must not exceed 15 digits." })
+    .regex(/^\d+$/, { message: "Phone number must be digits only." }),
   password: z.string()
     .min(6, { message: "Password must be at least 6 characters." })
     .max(100, { message: "Password must not exceed 100 characters." }),
@@ -63,6 +67,7 @@ const RegisterForm = () => {
     defaultValues: {
       name: "",
       email: "",
+      phoneNumber: "",
       password: "",
       confirmPassword: "",
       role: undefined,
@@ -77,6 +82,7 @@ const RegisterForm = () => {
     const registerData = {
       name: values.name,
       email: values.email,
+      phoneNumber: values.phoneNumber,
       password: values.password,
       role: values.role,
     };
@@ -172,6 +178,30 @@ const RegisterForm = () => {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter your phone number"
+                      type="string"
+                      {...field}
+                      autoComplete="tel"
+                      disabled={mutation.isPending}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    We'll use this phone number for sending information.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
 
             <FormField
               control={form.control}
