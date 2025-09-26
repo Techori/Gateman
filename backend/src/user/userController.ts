@@ -9,6 +9,7 @@ import {
     forceLogoutSchema,
     forgotPasswordSendOtpSchema,
     loginUserSchema,
+    pageSchema,
     resetPasswordWithOtpSchema,
 } from "./userZodSchema.js";
 import { Resend } from "resend";
@@ -17,6 +18,7 @@ import { config } from "../config/index.js";
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs/promises';
 import path from 'path';
+import mongoose from "mongoose";
 
 // Helper function to extract public_id from Cloudinary URL
 const extractPublicIdFromUrl = (url: string): string | null => {
@@ -25,15 +27,15 @@ const extractPublicIdFromUrl = (url: string): string | null => {
         const urlParts = url.split('/');
         const uploadIndex = urlParts.findIndex(part => part === 'upload');
         if (uploadIndex === -1) return null;
-        
+
         // Get everything after 'upload/' and before the file extension
         const publicIdWithFormat = urlParts.slice(uploadIndex + 1).join('/');
-        
+
         // Remove file extension and any transformations
         const lastSlashIndex = publicIdWithFormat.lastIndexOf('/');
         const fileName = lastSlashIndex === -1 ? publicIdWithFormat : publicIdWithFormat.substring(lastSlashIndex + 1);
         const publicId: string = fileName.split('.')[0] ?? ""; // Ensure publicId is always a string
-        
+
         // If there were transformations, we need the full path
         return lastSlashIndex === -1 ? publicId : publicIdWithFormat.replace(/\.[^/.]+$/, "");
     } catch (error) {
@@ -331,6 +333,195 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
         }
     }
 };
+// get all employee details for a property owner with limit and skip for pagination
+
+const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next: NextFunction) => {
+    const _req = req as AuthRequest;
+    try {
+        const { _id, sessionId, isAccessTokenExp } = _req;
+
+        // Get pagination parameters from query params instead of body
+        // Convert string query params to numbers with defaults
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        // Validate pagination parameters
+        const isValidLimitAndPage = pageSchema.parse({ page, limit });
+        const { limit: validatedLimit, page: validatedPage } = isValidLimitAndPage;
+
+        // Calculate skip for pagination
+        const skip = (validatedPage - 1) * validatedLimit;
+        console.log("skip limit page",skip,limit,page);
+        
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password -refreshToken -sessions");
+        if (!user) {
+            const err = createHttpError(404, "User not found");
+            return next(err);
+        }
+
+        // Check if user has proper role to get employees
+        if (user.role !== "propertyOwener") {
+            const err = createHttpError(403, "You are not allowed to get all employees details");
+            return next(err);
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            const err = createHttpError(401, "Invalid or expired session");
+            return next(err);
+        }
+
+        // Handle access token expiration and session update
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            // Update session activity (this may extend the session and generate new refresh token)
+            const updateResult = user.updateSessionActivity(sessionId);
+
+            // Generate new access token
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            // If session was extended, we get a new refresh token
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            // Save user with updated session
+            await user.save({ validateBeforeSave: false });
+        }
+
+        // Fetch employees created by this property owner with pagination
+        // Query the nested employeeDetails.propertyOwnerId field
+        const employees = await User.find()
+        // const employees = await User.find({ 
+            // "employeeDetails.propertyOwnerId": _id 
+        // })
+        //     .skip(skip)
+        //     .limit(validatedLimit)
+        //     .select("-password -refreshToken -sessions")
+        //     .populate('employeeDetails.propertyId', 'name address') // Optional: populate property details
+        //     .sort({ createdAt: -1 }); // Optional: sort by creation date, newest first
+        // const employees = await User.aggregate([
+        //     // 1. Match employees belonging to this property owner
+            // {
+            //     $match: {
+            //         "employeeDetails.propertyOwnerId": user._id
+            //     }
+            // },
+
+            // // 2. Lookup property details (populate)
+            // {
+            //     $lookup: {
+            //         from: "properties", // 👈 collection name of Property model
+            //         localField: "employeeDetails.propertyId",
+            //         foreignField: "_id",
+            //         as: "propertyDetails"
+            //     }
+            // },
+
+            // // 3. Unwind propertyDetails array (since populate returns single doc usually)
+            // {
+            //     $unwind: {
+            //         path: "$propertyDetails",
+            //         preserveNullAndEmptyArrays: true // in case no property exists
+            //     }
+            // },
+
+            // // 4. Project fields (exclude sensitive ones + include property details fields)
+            // {
+            //     $project: {
+            //         password: 0,
+            //         refreshToken: 0,
+            //         sessions: 0,
+            //         "propertyDetails.createdAt": 0,
+            //         "propertyDetails.updatedAt": 0,
+            //         "propertyDetails.__v": 0
+            //     }
+            // },
+
+            // // 5. Sort (newest first)
+            // {
+            //     $sort: { createdAt: -1 }
+            // },
+
+        //     // 6. Skip for pagination
+        //     { $skip: skip },
+
+        //     // 7. Limit for pagination
+        //     { $limit: validatedLimit }
+        // ]);
+
+        // Get total count for pagination metadata
+        const totalEmployees = await User.countDocuments({
+            "employeeDetails.propertyOwnerId": user._id
+        });
+
+        const totalPages = Math.ceil(totalEmployees / validatedLimit);
+        const hasNextPage = validatedPage < totalPages;
+        const hasPrevPage = validatedPage > 1;
+
+        if (employees.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: "No employees found",
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: newRefreshToken ? newRefreshToken : null,
+                data: {
+                    employees: [],
+                    pagination: {
+                        currentPage: validatedPage,
+                        totalPages: totalPages,
+                        totalEmployees: totalEmployees,
+                        limit: validatedLimit,
+                        hasNextPage: false,
+                        hasPrevPage: false
+                    }
+                }
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Employees fetched successfully",
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null,
+            data: {
+                employees: employees,
+                pagination: {
+                    currentPage: validatedPage,
+                    totalPages: totalPages,
+                    totalEmployees: totalEmployees,
+                    limit: validatedLimit,
+                    hasNextPage: hasNextPage,
+                    hasPrevPage: hasPrevPage
+                }
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            const err = createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            });
+            next(err);
+        } else {
+            console.error("get Employee Error:", error);
+            const err = createHttpError(
+                500,
+                "Internal server error while getting employee details"
+            );
+            next(err);
+        }
+    }
+}
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const isValidUser = loginUserSchema.parse(req.body);
@@ -1714,7 +1905,7 @@ const getUserProfile = async (req: Request, res: Response, next: NextFunction) =
 // uploadUserProfileImage
 const uploadUserProfileImage = async (req: Request, res: Response, next: NextFunction) => {
     let fileToDelete: string | null = null;
-    
+
     try {
         const _req = req as AuthRequest;
         const { _id, sessionId, isAccessTokenExp } = _req;
@@ -1742,13 +1933,13 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
         if (!profileImageFile) {
             return next(createHttpError(400, "Profile image file is missing"));
         }
-        
+
         // Get file path and track for cleanup
         const imagePath = getFilePath(profileImageFile); // Now profileImageFile is guaranteed to be defined
         if (!imagePath) {
             return next(createHttpError(400, "Invalid file path"));
         }
-        
+
         fileToDelete = imagePath;
 
         // Check if file exists
@@ -1777,7 +1968,7 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
 
         // Upload new profile image to Cloudinary
         let uploadResult: { url: string; public_id: string };
-        
+
         try {
             console.log("Uploading new profile image to Cloudinary...");
             uploadResult = await uploadProfileImageToCloudinary(imagePath, _id.toString());
@@ -1812,10 +2003,10 @@ const uploadUserProfileImage = async (req: Request, res: Response, next: NextFun
 
         // Update user profile URL in database
         user.userProfileUrl = uploadResult.url;
-        
+
         // Update session activity
         user.updateSessionActivity(sessionId);
-        
+
         try {
             await user.save({ validateBeforeSave: false });
         } catch (saveError) {
@@ -1917,4 +2108,9 @@ export {
     logoutUserBySessionId,
     getUserProfile,
     uploadUserProfileImage,
+    getAllEmployeesForPropertyOwner,
+    // updateEmployeeDetails,
+    // deleteEmployeeById,
+    // forceLogoutEmployeeById,
+    // updateUserStatusByAdmin,
 };
