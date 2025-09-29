@@ -26,6 +26,7 @@ import {
     getUserProfile,
     uploadUserProfileImage,
     getAllEmployeesForPropertyOwner,
+    // test,
 } from "./userController.js";
 import path from "node:path";
 import multer from "multer";
@@ -51,6 +52,7 @@ const upload = multer({
         }
     }
 });
+// userRouter.get("/test", authenticate, test);
 
 // Authentication routes
 userRouter.post("/register", createUser);
@@ -122,6 +124,7 @@ userRouter.post('/logoutUserBySessionId', logoutUserBySessionId)
 // route for create employee for property owerner role
 userRouter.post("/createEmployee", authenticate, createEmployee);
 userRouter.get("/getAllEmployees", authenticate, getAllEmployeesForPropertyOwner);
+
 
 
 // Additional routes for updating, deleting, and managing employees can be added here
