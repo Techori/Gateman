@@ -26,6 +26,7 @@ import {
     getUserProfile,
     uploadUserProfileImage,
     getAllEmployeesForPropertyOwner,
+    updateEmployeeDetails,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -107,6 +108,8 @@ userRouter.put(
     authenticate,
     changePasswordAndLogoutOthers
 );
+// Update employee details (name, phone, email)
+userRouter.put("/employee/:employeeId/update-details", authenticate, updateEmployeeDetails);
 
 // Forgot password routes (no authentication required)
 userRouter.post("/forgot-password/send-otp", forgotPasswordSendOtp);

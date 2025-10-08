@@ -112,6 +112,25 @@ const pageSchema = z.object({
     page: z.number().min(1).default(1),
     limit: z.number().min(1).max(100).default(10),
 });
+// Schema for updating employee details
+const updateEmployeeDetailsSchema = z.object({
+    name: z.string().trim().min(1, "Name must not be empty").optional(),
+    email: z.string().trim().email({ message: "Invalid email address" }).optional(),
+    phoneNumber: z
+        .string()
+        .length(10, "Phone number must be exactly 10 digits")
+        .regex(/^\d{10}$/, "Phone number must contain only digits")
+        .optional(),
+}).refine((data) => data.name || data.email || data.phoneNumber, {
+    message: "At least one field (name, email, or phoneNumber) must be provided",
+});
+// Schema for employee ID param validation
+const employeeIdParamSchema = z.object({
+    employeeId: z
+        .string()
+        .min(1, "Employee ID is required")
+        .regex(/^[0-9a-fA-F]{24}$/, "Employee ID must be a valid MongoDB ObjectId"),
+});
 
 export {
     createUserSchema,
@@ -124,4 +143,6 @@ export {
     resetPasswordWithOtpSchema,
     createEmployeeSchema,
     pageSchema,
+    updateEmployeeDetailsSchema,
+    employeeIdParamSchema,
 };

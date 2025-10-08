@@ -6,11 +6,13 @@ import {
     changePasswordSchema,
     createEmployeeSchema,
     createUserSchema,
+    employeeIdParamSchema,
     forceLogoutSchema,
     forgotPasswordSendOtpSchema,
     loginUserSchema,
     pageSchema,
     resetPasswordWithOtpSchema,
+    updateEmployeeDetailsSchema,
 } from "./userZodSchema.js";
 import { Resend } from "resend";
 
@@ -473,6 +475,120 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
         next(err);
     }
 }
+
+// 1. Update Employee Details with Zod Validation
+const updateEmployeeDetails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        
+        // Validate employee ID from params
+        const { employeeId } = employeeIdParamSchema.parse(req.params);
+        // const { employeeId } = req.params;
+        console.log("Employee ID to update:", employeeId);
+        
+        
+        // Validate request body
+        const validatedData = updateEmployeeDetailsSchema.parse(req.body);
+        const { name, phoneNumber, email } = validatedData;
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Check if user has proper role
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(403, "You are not allowed to update employee details"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find the employee
+        const employee = await User.findById(employeeId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
+        if (!employee) {
+            return next(createHttpError(404, "Employee not found"));
+        }
+
+        // Verify ownership
+        if (!employee.employeeDetails || employee.employeeDetails.propertyOwnerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You are not authorized to update this employee"));
+        }
+
+        // Verify employee role
+        if (!["gateKeeper", "reception"].includes(employee.role)) {
+            return next(createHttpError(400, "Cannot update this user type"));
+        }
+
+        // Check if email is already taken
+        if (email) {
+            const existingUser = await User.findOne({ 
+                email: email.toLowerCase(), 
+                _id: { $ne: employeeId } 
+            });
+            if (existingUser) {
+                return next(createHttpError(409, "Email is already in use"));
+            }
+        }
+
+        // Update fields
+        if (name) employee.name = name;
+        if (phoneNumber) employee.phoneNumber = phoneNumber;
+        if (email) employee.email = email.toLowerCase();
+
+        await employee.save();
+
+        // Handle token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Employee details updated successfully",
+            data: {
+                employee: {
+                    id: employee._id,
+                    name: employee.name,
+                    email: employee.email,
+                    phoneNumber: employee.phoneNumber,
+                    role: employee.role,
+                    status: employee.status,
+                    updatedAt: employee.updatedAt
+                }
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            }));
+        }
+        console.error("Update Employee Error:", error);
+        next(createHttpError(500, "Internal server error while updating employee"));
+    }
+};
 
 // const test = async (req: Request, res: Response, next: NextFunction) => {
 //     try {
@@ -2267,6 +2383,7 @@ export {
     getUserProfile,
     uploadUserProfileImage,
     getAllEmployeesForPropertyOwner,
+    updateEmployeeDetails,
     // test
     // updateEmployeeDetails,
     // deleteEmployeeById,
