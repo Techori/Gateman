@@ -338,11 +338,24 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
 // get all employee details for a property owner with limit and skip for pagination
 
 const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next: NextFunction) => {
-    const _req = req as AuthRequest;
     try {
-        
+        const _req = req as AuthRequest;
+        console.log("=== DEBUGGING USER MODEL ===");
+        console.log("1. User model:", User);
+        console.log("2. typeof User:", typeof User);
+        console.log("3. User.find:", User.find);
+        console.log("4. User.prototype:", Object.getOwnPropertyNames(User.prototype));
+        console.log("5. mongoose.connection.readyState:", mongoose.connection.readyState);
+        console.log("6. mongoose.models:", Object.keys(mongoose.models));
+
+        // Try to get the model from mongoose directly
+        const UserFromMongoose = mongoose.model("User");
+        console.log("7. UserFromMongoose:", UserFromMongoose);
+        console.log("8. UserFromMongoose === User:", UserFromMongoose === User);
+        console.log("9. UserFromMongoose.find:", UserFromMongoose.find);
+        console.log("10. UserFromMongoose.prototype:", Object.getOwnPropertyNames(UserFromMongoose.prototype));
         const { _id, sessionId, isAccessTokenExp } = _req;
-        
+        // Try the find operation with the mongoose model
         // Get pagination parameters from query params instead of body
         // Convert string query params to numbers with defaults
         const page = parseInt(req.query.page as string) || 1;
@@ -356,9 +369,14 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
         const skip = (validatedPage - 1) * validatedLimit;
         console.log("skip limit page", skip, limit, page);
 
-
-        // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password -refreshToken -sessions");
+        console.log("Attempting to find user by ID :", _id ,skip, validatedLimit, validatedPage);
+        
+        
+        // // Find the current user (property owner)
+        const user = await UserFromMongoose.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
+        console.log("user found:", user);
+        
+        
         if (!user) {
             const err = createHttpError(404, "User not found");
             return next(err);
@@ -369,138 +387,71 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
             const err = createHttpError(403, "You are not allowed to get all employees details");
             return next(err);
         }
-
+        console.log("checking -2 #######################");
         // Validate session
-        if (!user.isSessionValid(sessionId)) {
-            const err = createHttpError(401, "Invalid or expired session");
-            return next(err);
-        }
-
+        // if (!user.isSessionValid(sessionId)) {
+        //     console.log("checking -4 #######################");
+        //     const err = createHttpError(401, "Invalid or expired session");
+        //     return next(err);
+        // }
+        console.log("checking -1 #######################");
         // Handle access token expiration and session update
         let newAccessToken = null;
         let newRefreshToken = null;
-
+        
         if (isAccessTokenExp) {
+            console.log("checking 100 #######################");
             // Update session activity (this may extend the session and generate new refresh token)
-            const updateResult = user.updateSessionActivity(sessionId);
-
+            // const updateResult = user.updateSessionActivity(sessionId);
+            
             // Generate new access token
             newAccessToken = user.generateAccessToken(sessionId);
-
+            console.log("newAccessToken #######################",newAccessToken);
             // If session was extended, we get a new refresh token
-            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
-                newRefreshToken = updateResult.newRefreshToken;
-            }
-
+            // if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+            //     newRefreshToken = updateResult.newRefreshToken;
+            // }
+            
             // Save user with updated session
-            await user.save({ validateBeforeSave: false });
+            // await user.save({ validateBeforeSave: false });
+            
         }
-
-        // Fetch employees created by this property owner with pagination
-        // Query the nested employeeDetails.propertyOwnerId field
-        console.log("Query the nested employeeDetails.propertyOwnerId field");
-        let employees
-        // console.log("UserFromMongoose === User  ", UserFromMongoose === User);
-        const UserFromMongoose = mongoose.model("User");
-        if (UserFromMongoose === User) {
-            employees = await UserFromMongoose.find({})
-        }
-
-        // const employees = await User.find({ 
-        // "employeeDetails.propertyOwnerId": _id 
-        // })
-        //     .skip(skip)
-        //     .limit(validatedLimit)
-        //     .select("-password -refreshToken -sessions")
-        //     .populate('employeeDetails.propertyId', 'name address') // Optional: populate property details
-        //     .sort({ createdAt: -1 }); // Optional: sort by creation date, newest first
-        // const employees = await User.aggregate([
-        //     // 1. Match employees belonging to this property owner
-        // {
-        //     $match: {
-        //         "employeeDetails.propertyOwnerId": user._id
-        //     }
-        // },
-
-        // // 2. Lookup property details (populate)
-        // {
-        //     $lookup: {
-        //         from: "properties", // 👈 collection name of Property model
-        //         localField: "employeeDetails.propertyId",
-        //         foreignField: "_id",
-        //         as: "propertyDetails"
-        //     }
-        // },
-
-        // // 3. Unwind propertyDetails array (since populate returns single doc usually)
-        // {
-        //     $unwind: {
-        //         path: "$propertyDetails",
-        //         preserveNullAndEmptyArrays: true // in case no property exists
-        //     }
-        // },
-
-        // // 4. Project fields (exclude sensitive ones + include property details fields)
-        // {
-        //     $project: {
-        //         password: 0,
-        //         refreshToken: 0,
-        //         sessions: 0,
-        //         "propertyDetails.createdAt": 0,
-        //         "propertyDetails.updatedAt": 0,
-        //         "propertyDetails.__v": 0
-        //     }
-        // },
-
-        // // 5. Sort (newest first)
-        // {
-        //     $sort: { createdAt: -1 }
-        // },
-
-        //     // 6. Skip for pagination
-        //     { $skip: skip },
-
-        //     // 7. Limit for pagination
-        //     { $limit: validatedLimit }
-        // ]);
-
-        // Get total count for pagination metadata
-        const totalEmployees = await User.countDocuments({
-            "employeeDetails.propertyOwnerId": user._id
+        // const testResult = await UserFromMongoose.find({});
+        console.log("checking 0 #######################");
+        const employees = await User.find({
+            "employeeDetails.propertyOwnerId": _id
+        })
+            .select("-password -refreshToken -sessions -otp -otpExpiresAt")
+            .populate('employeeDetails.propertyId', 'name address') // Optional: populate property details
+            .sort({ createdAt: -1 }); // Optional: sort by creation date, newest first
+        // res.status(200).json({
+        //     success: true,
+        //     debug: {
+        //         userModelExists: !!User,
+        //         findMethodExists: !!User.find,
+        //         dbState: mongoose.connection.readyState,
+        //         modelCount: testResult.length
+        //     },
+        //     data: testResult,
+        //     employees
+        // });
+        console.log("checking 1 #######################");
+        const totalEmployees = await UserFromMongoose.countDocuments({
+            "employeeDetails.propertyOwnerId": _id
         });
+        console.log("checking #######################");
+        
 
         const totalPages = Math.ceil(totalEmployees / validatedLimit);
         const hasNextPage = validatedPage < totalPages;
         const hasPrevPage = validatedPage > 1;
-
-        if (employees) {
-            return res.status(200).json({
-                success: true,
-                message: "No employees found",
-                isAccessTokenExp,
-                accessToken: isAccessTokenExp ? newAccessToken : null,
-                refreshToken: newRefreshToken ? newRefreshToken : null,
-                employees,
-                data: {
-                    employees: [],
-                    pagination: {
-                        currentPage: validatedPage,
-                        totalPages: totalPages,
-                        totalEmployees: totalEmployees,
-                        limit: validatedLimit,
-                        hasNextPage: false,
-                        hasPrevPage: false
-                    }
-                }
-            });
-        }
-
+        
         return res.status(200).json({
             success: true,
             message: "Employees fetched successfully",
             isAccessTokenExp,
             accessToken: isAccessTokenExp ? newAccessToken : null,
-            refreshToken: newRefreshToken ? newRefreshToken : null,
+            
             data: {
                 employees: employees,
                 pagination: {
@@ -513,24 +464,13 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
                 }
             }
         });
-
     } catch (error) {
-        if (error instanceof ZodError) {
-            const err = createHttpError(400, {
-                message: {
-                    type: "Validation error",
-                    zodError: error.issues,
-                },
-            });
-            next(err);
-        } else {
-            console.error("get Employee Error:", error);
-            const err = createHttpError(
-                500,
-                "Internal server error while getting employee details"
-            );
-            next(err);
-        }
+        console.log("=== ERROR DETAILS ===");
+        console.log("Error:", error);
+        console.log("Error stack:", (error as Error).stack);
+
+        const err = createHttpError(500, ` error: ${(error as Error).message}`);
+        next(err);
     }
 }
 
