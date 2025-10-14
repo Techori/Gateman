@@ -28,6 +28,7 @@ import {
     getAllEmployeesForPropertyOwner,
     updateEmployeeDetails,
     deleteEmployeeById,
+    forceLogoutEmployeeById,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -115,6 +116,8 @@ userRouter.put("/employee/:employeeId/update-details", authenticate, updateEmplo
 // Delete employee by ID
 userRouter.delete("/employee/:employeeId/delete", authenticate, deleteEmployeeById);
 
+// Force logout employee from all devices
+userRouter.post("/employee/:employeeId/force-logout", authenticate, forceLogoutEmployeeById);
 
 // Forgot password routes (no authentication required)
 userRouter.post("/forgot-password/send-otp", forgotPasswordSendOtp);

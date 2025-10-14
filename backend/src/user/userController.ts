@@ -682,6 +682,98 @@ const deleteEmployeeById = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
+// 3. Force Logout Employee By ID with Zod Validation
+const forceLogoutEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        
+        // Validate employee ID from params
+        const { employeeId } = employeeIdParamSchema.parse(req.params);
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Check role
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(403, "You are not allowed to logout employees"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find the employee
+        const employee = await User.findById(employeeId).select("-password");
+        if (!employee) {
+            return next(createHttpError(404, "Employee not found"));
+        }
+
+        // Verify ownership
+        if (!employee.employeeDetails || employee.employeeDetails.propertyOwnerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You are not authorized to logout this employee"));
+        }
+
+        // Verify role
+        if (!["gateKeeper", "reception"].includes(employee.role)) {
+            return next(createHttpError(400, "Cannot logout this user type"));
+        }
+
+        // Get session count before clearing
+        const sessionCount = employee.getSessionCount();
+
+        // Clear all sessions
+        employee.clearAllSessions();
+        await employee.save({ validateBeforeSave: false });
+
+        // Handle token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Employee logged out from all devices successfully",
+            data: {
+                employeeId: employee._id,
+                employeeName: employee.name,
+                employeeEmail: employee.email,
+                clearedSessions: sessionCount,
+                loggedOutAt: new Date()
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            }));
+        }
+        console.error("Force Logout Employee Error:", error);
+        next(createHttpError(500, "Internal server error while logging out employee"));
+    }
+};
+
 
 
 // const test = async (req: Request, res: Response, next: NextFunction) => {
@@ -2479,6 +2571,7 @@ export {
     getAllEmployeesForPropertyOwner,
     updateEmployeeDetails,
     deleteEmployeeById,
+    forceLogoutEmployeeById,
     // test
     // updateEmployeeDetails,
     // deleteEmployeeById,
