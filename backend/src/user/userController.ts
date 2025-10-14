@@ -589,6 +589,100 @@ const updateEmployeeDetails = async (req: Request, res: Response, next: NextFunc
         next(createHttpError(500, "Internal server error while updating employee"));
     }
 };
+// 2. Delete Employee By ID with Zod Validation
+const deleteEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        
+        // Validate employee ID from params
+        const { employeeId } = employeeIdParamSchema.parse(req.params);
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Check role
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(403, "You are not allowed to delete employees"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find the employee
+        const employee = await User.findById(employeeId).select("-password");
+        if (!employee) {
+            return next(createHttpError(404, "Employee not found"));
+        }
+
+        // Verify ownership
+        if (!employee.employeeDetails || employee.employeeDetails.propertyOwnerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You are not authorized to delete this employee"));
+        }
+
+        // Verify role
+        if (!["gateKeeper", "reception"].includes(employee.role)) {
+            return next(createHttpError(400, "Cannot delete this user type"));
+        }
+
+        // Store info before deletion
+        const deletedEmployeeInfo = {
+            id: employee._id,
+            name: employee.name,
+            email: employee.email,
+            role: employee.role
+        };
+
+        // Delete the employee
+        await User.findByIdAndDelete(employeeId);
+
+        // Handle token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Employee deleted successfully",
+            data: {
+                deletedEmployee: deletedEmployeeInfo,
+                deletedAt: new Date()
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            }));
+        }
+        console.error("Delete Employee Error:", error);
+        next(createHttpError(500, "Internal server error while deleting employee"));
+    }
+};
+
+
 
 // const test = async (req: Request, res: Response, next: NextFunction) => {
 //     try {
@@ -2384,6 +2478,7 @@ export {
     uploadUserProfileImage,
     getAllEmployeesForPropertyOwner,
     updateEmployeeDetails,
+    deleteEmployeeById,
     // test
     // updateEmployeeDetails,
     // deleteEmployeeById,

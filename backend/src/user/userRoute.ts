@@ -27,6 +27,7 @@ import {
     uploadUserProfileImage,
     getAllEmployeesForPropertyOwner,
     updateEmployeeDetails,
+    deleteEmployeeById,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -111,6 +112,10 @@ userRouter.put(
 // Update employee details (name, phone, email)
 userRouter.put("/employee/:employeeId/update-details", authenticate, updateEmployeeDetails);
 
+// Delete employee by ID
+userRouter.delete("/employee/:employeeId/delete", authenticate, deleteEmployeeById);
+
+
 // Forgot password routes (no authentication required)
 userRouter.post("/forgot-password/send-otp", forgotPasswordSendOtp);
 userRouter.post("/forgot-password/reset", resetPasswordWithOtp);
@@ -120,6 +125,7 @@ userRouter.post("/force-logout", forecedLogoutAllDevices); // Note: This one doe
 
 // user logout by userid and sessionId
 userRouter.post('/logoutUserBySessionId', logoutUserBySessionId)
+
 
 
 
