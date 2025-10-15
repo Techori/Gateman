@@ -131,6 +131,22 @@ const employeeIdParamSchema = z.object({
         .min(1, "Employee ID is required")
         .regex(/^[0-9a-fA-F]{24}$/, "Employee ID must be a valid MongoDB ObjectId"),
 });
+// Schema for user ID param validation
+const userIdParamSchema = z.object({
+    userId: z
+        .string()
+        .min(1, "User ID is required")
+        .regex(/^[0-9a-fA-F]{24}$/, "User ID must be a valid MongoDB ObjectId"),
+});
+// Schema for updating user status (admin)
+
+// Schema for updating user status (admin)
+const updateUserStatusSchema = z.object({
+    status: z.enum(["active", "nonActive"], {
+        message: "Status must be either 'active' or 'nonActive'",
+    }),
+});
+
 
 export {
     createUserSchema,
@@ -145,4 +161,6 @@ export {
     pageSchema,
     updateEmployeeDetailsSchema,
     employeeIdParamSchema,
+    userIdParamSchema,
+    updateUserStatusSchema,
 };

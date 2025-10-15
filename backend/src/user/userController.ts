@@ -13,6 +13,8 @@ import {
     pageSchema,
     resetPasswordWithOtpSchema,
     updateEmployeeDetailsSchema,
+    updateUserStatusSchema,
+    userIdParamSchema,
 } from "./userZodSchema.js";
 import { Resend } from "resend";
 
@@ -773,8 +775,136 @@ const forceLogoutEmployeeById = async (req: Request, res: Response, next: NextFu
         next(createHttpError(500, "Internal server error while logging out employee"));
     }
 };
+// 4. Update User Status By Admin with Zod Validation
+const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+        
+        // Validate user ID from params
+        const { userId } = userIdParamSchema.parse(req.params);
+        
+        // Validate request body
+        const { status } = updateUserStatusSchema.parse(req.body);
 
+        // Find the current user (admin)
+        const admin = await User.findById(_id).select("-password");
+        if (!admin) {
+            return next(createHttpError(404, "Admin user not found"));
+        }
 
+        // Check admin role
+        if (admin.role !== "admin") {
+            return next(createHttpError(403, "Access denied. Admin role required"));
+        }
+
+        // Validate session
+        if (!admin.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find the target user
+        const targetUser = await User.findById(userId).select("-password");
+        if (!targetUser) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Prevent admin from changing their own status
+        if (userId === _id.toString()) {
+            return next(createHttpError(400, "Cannot change your own status"));
+        }
+
+        // Store old status
+        const oldStatus = targetUser.status;
+
+        // Update status
+        targetUser.status = status;
+
+        // If status is nonActive, logout user from all devices
+        if (status === "nonActive") {
+            const sessionCount = targetUser.getSessionCount();
+            targetUser.clearAllSessions();
+            await targetUser.save({ validateBeforeSave: false });
+
+            // Handle admin token expiration
+            let newAccessToken = null;
+            let newRefreshToken = null;
+
+            if (isAccessTokenExp) {
+                const updateResult = admin.updateSessionActivity(sessionId);
+                newAccessToken = admin.generateAccessToken(sessionId);
+
+                if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                    newRefreshToken = updateResult.newRefreshToken;
+                }
+
+                await admin.save({ validateBeforeSave: false });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "User status updated to nonActive and logged out from all devices",
+                data: {
+                    userId: targetUser._id,
+                    name: targetUser.name,
+                    email: targetUser.email,
+                    oldStatus,
+                    newStatus: status,
+                    clearedSessions: sessionCount,
+                    updatedAt: new Date()
+                },
+                isAccessTokenExp,
+                accessToken: isAccessTokenExp ? newAccessToken : null,
+                refreshToken: newRefreshToken ? newRefreshToken : null
+            });
+        }
+
+        await targetUser.save();
+
+        // Handle admin token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = admin.updateSessionActivity(sessionId);
+            newAccessToken = admin.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await admin.save({ validateBeforeSave: false });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "User status updated successfully",
+            data: {
+                userId: targetUser._id,
+                name: targetUser.name,
+                email: targetUser.email,
+                oldStatus,
+                newStatus: status,
+                updatedAt: new Date()
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            }));
+        }
+        console.error("Update User Status Error:", error);
+        next(createHttpError(500, "Internal server error while updating user status"));
+    }
+};
 
 // const test = async (req: Request, res: Response, next: NextFunction) => {
 //     try {
@@ -2572,6 +2702,7 @@ export {
     updateEmployeeDetails,
     deleteEmployeeById,
     forceLogoutEmployeeById,
+    updateUserStatusByAdmin,
     // test
     // updateEmployeeDetails,
     // deleteEmployeeById,

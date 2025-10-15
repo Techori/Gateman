@@ -29,6 +29,7 @@ import {
     updateEmployeeDetails,
     deleteEmployeeById,
     forceLogoutEmployeeById,
+    updateUserStatusByAdmin,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -115,6 +116,9 @@ userRouter.put("/employee/:employeeId/update-details", authenticate, updateEmplo
 
 // Delete employee by ID
 userRouter.delete("/employee/:employeeId/delete", authenticate, deleteEmployeeById);
+
+// Update any user status (admin only)
+userRouter.put("/admin/user/:userId/update-status", authenticate, updateUserStatusByAdmin);
 
 // Force logout employee from all devices
 userRouter.post("/employee/:employeeId/force-logout", authenticate, forceLogoutEmployeeById);
