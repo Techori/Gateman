@@ -1034,22 +1034,21 @@ const updateEmployeePropertyId = async (req: Request, res: Response, next: NextF
             return next(createHttpError(403, "You are not allowed to update employee property"));
         }
 
-        // find property is exists or not
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find property and validate it exists
         const property = await Property.findById(propertyId);
         if (!property) {
             return next(createHttpError(404, "Property not found"));
         }
 
-        // validate property by property owner
-        
-
-        if(user.employeeDetails.propertyId.toString() === propertyId){
-            return next(createHttpError(400, "You can only assign properties that you own"));
-        }
-
-        // Validate session
-        if (!user.isSessionValid(sessionId)) {
-            return next(createHttpError(401, "Invalid or expired session"));
+        // FIXED: Validate that the property belongs to the property owner
+        // Check if the property's ownerId matches the current user's _id
+        if (property.ownerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You can only assign properties that you own"));
         }
 
         // Find the employee
@@ -1058,7 +1057,7 @@ const updateEmployeePropertyId = async (req: Request, res: Response, next: NextF
             return next(createHttpError(404, "Employee not found"));
         }
 
-        // Verify ownership
+        // Verify ownership of employee
         if (!employee.employeeDetails || employee.employeeDetails.propertyOwnerId.toString() !== _id.toString()) {
             return next(createHttpError(403, "You are not authorized to update this employee's property"));
         }
@@ -1105,6 +1104,8 @@ const updateEmployeePropertyId = async (req: Request, res: Response, next: NextF
                 email: employee.email,
                 oldPropertyId: oldPropertyId,
                 newPropertyId: propertyId,
+                propertyName: property.name,
+                propertyAddress: property.address,
                 assignedAt: employee.employeeDetails.assignedAt,
                 updatedAt: new Date()
             },
