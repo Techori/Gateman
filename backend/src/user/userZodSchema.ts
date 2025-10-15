@@ -153,6 +153,14 @@ const updateEmployeeRoleSchema = z.object({
     }),
 });
 
+// Schema for updating employee property
+const updateEmployeePropertySchema = z.object({
+    propertyId: z
+        .string()
+        .min(1, "Property ID is required")
+        .regex(/^[0-9a-fA-F]{24}$/, "Property ID must be a valid MongoDB ObjectId"),
+});
+
 
 export {
     createUserSchema,
@@ -170,4 +178,5 @@ export {
     userIdParamSchema,
     updateUserStatusSchema,
     updateEmployeeRoleSchema,
+    updateEmployeePropertySchema,
 };

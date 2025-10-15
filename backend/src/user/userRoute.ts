@@ -31,6 +31,7 @@ import {
     forceLogoutEmployeeById,
     updateUserStatusByAdmin,
     updateEmployeeRole,
+    updateEmployeePropertyId,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -123,6 +124,10 @@ userRouter.put("/admin/user/:userId/update-status", authenticate, updateUserStat
 
 // Force logout employee from all devices
 userRouter.post("/employee/:employeeId/force-logout", authenticate, forceLogoutEmployeeById);
+
+// Update employee property assignment
+userRouter.put("/employee/:employeeId/update-property", authenticate, updateEmployeePropertyId);
+
 
 // Update employee role (gateKeeper/reception)
 userRouter.put("/employee/:employeeId/update-role", authenticate, updateEmployeeRole);
