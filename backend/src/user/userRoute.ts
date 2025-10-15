@@ -30,6 +30,7 @@ import {
     deleteEmployeeById,
     forceLogoutEmployeeById,
     updateUserStatusByAdmin,
+    updateEmployeeRole,
     // test,
 } from "./userController.js";
 import path from "node:path";
@@ -122,6 +123,9 @@ userRouter.put("/admin/user/:userId/update-status", authenticate, updateUserStat
 
 // Force logout employee from all devices
 userRouter.post("/employee/:employeeId/force-logout", authenticate, forceLogoutEmployeeById);
+
+// Update employee role (gateKeeper/reception)
+userRouter.put("/employee/:employeeId/update-role", authenticate, updateEmployeeRole);
 
 // Forgot password routes (no authentication required)
 userRouter.post("/forgot-password/send-otp", forgotPasswordSendOtp);

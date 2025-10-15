@@ -13,6 +13,7 @@ import {
     pageSchema,
     resetPasswordWithOtpSchema,
     updateEmployeeDetailsSchema,
+    updateEmployeeRoleSchema,
     updateUserStatusSchema,
     userIdParamSchema,
 } from "./userZodSchema.js";
@@ -373,14 +374,14 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
         const skip = (validatedPage - 1) * validatedLimit;
         console.log("skip limit page", skip, limit, page);
 
-        console.log("Attempting to find user by ID :", _id ,skip, validatedLimit, validatedPage);
-        
-        
+        console.log("Attempting to find user by ID :", _id, skip, validatedLimit, validatedPage);
+
+
         // // Find the current user (property owner)
         const user = await UserFromMongoose.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         console.log("user found:", user);
-        
-        
+
+
         if (!user) {
             const err = createHttpError(404, "User not found");
             return next(err);
@@ -402,23 +403,23 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
         // Handle access token expiration and session update
         let newAccessToken = null;
         let newRefreshToken = null;
-        
+
         if (isAccessTokenExp) {
             console.log("checking 100 #######################");
             // Update session activity (this may extend the session and generate new refresh token)
             // const updateResult = user.updateSessionActivity(sessionId);
-            
+
             // Generate new access token
             newAccessToken = user.generateAccessToken(sessionId);
-            console.log("newAccessToken #######################",newAccessToken);
+            console.log("newAccessToken #######################", newAccessToken);
             // If session was extended, we get a new refresh token
             // if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
             //     newRefreshToken = updateResult.newRefreshToken;
             // }
-            
+
             // Save user with updated session
             // await user.save({ validateBeforeSave: false });
-            
+
         }
         // const testResult = await UserFromMongoose.find({});
         console.log("checking 0 #######################");
@@ -444,18 +445,18 @@ const getAllEmployeesForPropertyOwner = async (req: Request, res: Response, next
             "employeeDetails.propertyOwnerId": _id
         });
         console.log("checking #######################");
-        
+
 
         const totalPages = Math.ceil(totalEmployees / validatedLimit);
         const hasNextPage = validatedPage < totalPages;
         const hasPrevPage = validatedPage > 1;
-        
+
         return res.status(200).json({
             success: true,
             message: "Employees fetched successfully",
             isAccessTokenExp,
             accessToken: isAccessTokenExp ? newAccessToken : null,
-            
+
             data: {
                 employees: employees,
                 pagination: {
@@ -483,13 +484,13 @@ const updateEmployeeDetails = async (req: Request, res: Response, next: NextFunc
     try {
         const _req = req as AuthRequest;
         const { _id, sessionId, isAccessTokenExp } = _req;
-        
+
         // Validate employee ID from params
         const { employeeId } = employeeIdParamSchema.parse(req.params);
         // const { employeeId } = req.params;
         console.log("Employee ID to update:", employeeId);
-        
-        
+
+
         // Validate request body
         const validatedData = updateEmployeeDetailsSchema.parse(req.body);
         const { name, phoneNumber, email } = validatedData;
@@ -528,9 +529,9 @@ const updateEmployeeDetails = async (req: Request, res: Response, next: NextFunc
 
         // Check if email is already taken
         if (email) {
-            const existingUser = await User.findOne({ 
-                email: email.toLowerCase(), 
-                _id: { $ne: employeeId } 
+            const existingUser = await User.findOne({
+                email: email.toLowerCase(),
+                _id: { $ne: employeeId }
             });
             if (existingUser) {
                 return next(createHttpError(409, "Email is already in use"));
@@ -596,7 +597,7 @@ const deleteEmployeeById = async (req: Request, res: Response, next: NextFunctio
     try {
         const _req = req as AuthRequest;
         const { _id, sessionId, isAccessTokenExp } = _req;
-        
+
         // Validate employee ID from params
         const { employeeId } = employeeIdParamSchema.parse(req.params);
 
@@ -689,7 +690,7 @@ const forceLogoutEmployeeById = async (req: Request, res: Response, next: NextFu
     try {
         const _req = req as AuthRequest;
         const { _id, sessionId, isAccessTokenExp } = _req;
-        
+
         // Validate employee ID from params
         const { employeeId } = employeeIdParamSchema.parse(req.params);
 
@@ -780,10 +781,10 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
     try {
         const _req = req as AuthRequest;
         const { _id, sessionId, isAccessTokenExp } = _req;
-        
+
         // Validate user ID from params
         const { userId } = userIdParamSchema.parse(req.params);
-        
+
         // Validate request body
         const { status } = updateUserStatusSchema.parse(req.body);
 
@@ -906,6 +907,108 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
     }
 };
 
+
+// 5. Update Employee Role with Zod Validation
+const updateEmployeeRole = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const _req = req as AuthRequest;
+        const { _id, sessionId, isAccessTokenExp } = _req;
+
+        // Validate employee ID from params
+        const { employeeId } = employeeIdParamSchema.parse(req.params);
+
+        // Validate request body
+        const { role } = updateEmployeeRoleSchema.parse(req.body);
+
+        // Find the current user (property owner)
+        const user = await User.findById(_id).select("-password");
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+
+        // Check role
+        if (user.role !== "propertyOwener") {
+            return next(createHttpError(403, "You are not allowed to update employee role"));
+        }
+
+        // Validate session
+        if (!user.isSessionValid(sessionId)) {
+            return next(createHttpError(401, "Invalid or expired session"));
+        }
+
+        // Find the employee
+        const employee = await User.findById(employeeId).select("-password");
+        if (!employee) {
+            return next(createHttpError(404, "Employee not found"));
+        }
+
+        // Verify ownership
+        if (!employee.employeeDetails || employee.employeeDetails.propertyOwnerId.toString() !== _id.toString()) {
+            return next(createHttpError(403, "You are not authorized to update this employee's role"));
+        }
+
+        // Verify current role
+        if (!["gateKeeper", "reception"].includes(employee.role)) {
+            return next(createHttpError(400, "Cannot update role for this user type"));
+        }
+
+        // Store old role
+        const oldRole = employee.role;
+
+        // Check if role is same
+        if (oldRole === role) {
+            return next(createHttpError(400, "New role must be different from current role"));
+        }
+
+        // Update role
+        employee.role = role;
+        await employee.save();
+
+        // Handle token expiration
+        let newAccessToken = null;
+        let newRefreshToken = null;
+
+        if (isAccessTokenExp) {
+            const updateResult = user.updateSessionActivity(sessionId);
+            newAccessToken = user.generateAccessToken(sessionId);
+
+            if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
+                newRefreshToken = updateResult.newRefreshToken;
+            }
+
+            await user.save({ validateBeforeSave: false });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Employee role updated successfully",
+            data: {
+                employeeId: employee._id,
+                name: employee.name,
+                email: employee.email,
+                oldRole,
+                newRole: role,
+                updatedAt: new Date()
+            },
+            isAccessTokenExp,
+            accessToken: isAccessTokenExp ? newAccessToken : null,
+            refreshToken: newRefreshToken ? newRefreshToken : null
+        });
+
+    } catch (error) {
+        if (error instanceof ZodError) {
+            return next(createHttpError(400, {
+                message: {
+                    type: "Validation error",
+                    zodError: error.issues,
+                },
+            }));
+        }
+        console.error("Update Employee Role Error:", error);
+        next(createHttpError(500, "Internal server error while updating employee role"));
+    }
+};
+
 // const test = async (req: Request, res: Response, next: NextFunction) => {
 //     try {
 //         console.log("User model:", User); // Add this line
@@ -1009,13 +1112,13 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
 //         console.log("skip limit page", skip, limit, page);
 
 //         console.log("Attempting to find user by ID :", _id ,skip, validatedLimit, validatedPage);
-        
-        
+
+
 //         // // Find the current user (property owner)
 //         const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
 //         console.log("user found:", user);
-        
-        
+
+
 //         if (!user) {
 //             const err = createHttpError(404, "User not found");
 //             return next(err);
@@ -1037,12 +1140,12 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
 //         // Handle access token expiration and session update
 //         let newAccessToken = null;
 //         let newRefreshToken = null;
-        
+
 //         if (isAccessTokenExp) {
 //             console.log("checking 100 #######################");
 //             // Update session activity (this may extend the session and generate new refresh token)
 //             // const updateResult = user.updateSessionActivity(sessionId);
-            
+
 //             // Generate new access token
 //             newAccessToken = user.generateAccessToken(sessionId);
 //             console.log("newAccessToken #######################",newAccessToken);
@@ -1050,10 +1153,10 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
 //             // if (updateResult && typeof updateResult === 'object' && updateResult.extended) {
 //             //     newRefreshToken = updateResult.newRefreshToken;
 //             // }
-            
+
 //             // Save user with updated session
 //             // await user.save({ validateBeforeSave: false });
-            
+
 //         }
 //         // const testResult = await User.find({});
 //         console.log("checking 0 #######################");
@@ -1079,18 +1182,18 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
 //             "employeeDetails.propertyOwnerId": _id
 //         });
 //         console.log("checking #######################");
-        
+
 
 //         const totalPages = Math.ceil(totalEmployees / validatedLimit);
 //         const hasNextPage = validatedPage < totalPages;
 //         const hasPrevPage = validatedPage > 1;
-        
+
 //         return res.status(200).json({
 //             success: true,
 //             message: "Employees fetched successfully",
 //             isAccessTokenExp,
 //             accessToken: isAccessTokenExp ? newAccessToken : null,
-            
+
 //             data: {
 //                 employees: employees,
 //                 pagination: {
@@ -2703,6 +2806,7 @@ export {
     deleteEmployeeById,
     forceLogoutEmployeeById,
     updateUserStatusByAdmin,
+    updateEmployeeRole,
     // test
     // updateEmployeeDetails,
     // deleteEmployeeById,

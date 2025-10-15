@@ -146,6 +146,12 @@ const updateUserStatusSchema = z.object({
         message: "Status must be either 'active' or 'nonActive'",
     }),
 });
+// Schema for updating employee role
+const updateEmployeeRoleSchema = z.object({
+    role: z.enum(["gateKeeper", "reception"], {
+        message: "Role must be either 'gateKeeper' or 'reception'",
+    }),
+});
 
 
 export {
@@ -163,4 +169,5 @@ export {
     employeeIdParamSchema,
     userIdParamSchema,
     updateUserStatusSchema,
+    updateEmployeeRoleSchema,
 };
