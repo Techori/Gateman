@@ -211,7 +211,7 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction) =
         const { email, name, password, phoneNumber, role, propertyId } = validateUser;
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             const err = createHttpError(404, "User not found");
             return next(err);
@@ -498,7 +498,7 @@ const updateEmployeeDetails = async (req: Request, res: Response, next: NextFunc
         const { name, phoneNumber, email } = validatedData;
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             return next(createHttpError(404, "User not found"));
         }
@@ -604,7 +604,7 @@ const deleteEmployeeById = async (req: Request, res: Response, next: NextFunctio
         const { employeeId } = employeeIdParamSchema.parse(req.params);
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             return next(createHttpError(404, "User not found"));
         }
@@ -620,7 +620,7 @@ const deleteEmployeeById = async (req: Request, res: Response, next: NextFunctio
         }
 
         // Find the employee
-        const employee = await User.findById(employeeId).select("-password");
+        const employee = await User.findById(employeeId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!employee) {
             return next(createHttpError(404, "Employee not found"));
         }
@@ -697,7 +697,7 @@ const forceLogoutEmployeeById = async (req: Request, res: Response, next: NextFu
         const { employeeId } = employeeIdParamSchema.parse(req.params);
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             return next(createHttpError(404, "User not found"));
         }
@@ -713,7 +713,7 @@ const forceLogoutEmployeeById = async (req: Request, res: Response, next: NextFu
         }
 
         // Find the employee
-        const employee = await User.findById(employeeId).select("-password");
+        const employee = await User.findById(employeeId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!employee) {
             return next(createHttpError(404, "Employee not found"));
         }
@@ -791,7 +791,7 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
         const { status } = updateUserStatusSchema.parse(req.body);
 
         // Find the current user (admin)
-        const admin = await User.findById(_id).select("-password");
+        const admin = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!admin) {
             return next(createHttpError(404, "Admin user not found"));
         }
@@ -807,7 +807,7 @@ const updateUserStatusByAdmin = async (req: Request, res: Response, next: NextFu
         }
 
         // Find the target user
-        const targetUser = await User.findById(userId).select("-password");
+        const targetUser = await User.findById(userId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!targetUser) {
             return next(createHttpError(404, "User not found"));
         }
@@ -923,7 +923,7 @@ const updateEmployeeRole = async (req: Request, res: Response, next: NextFunctio
         const { role } = updateEmployeeRoleSchema.parse(req.body);
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             return next(createHttpError(404, "User not found"));
         }
@@ -939,7 +939,7 @@ const updateEmployeeRole = async (req: Request, res: Response, next: NextFunctio
         }
 
         // Find the employee
-        const employee = await User.findById(employeeId).select("-password");
+        const employee = await User.findById(employeeId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!employee) {
             return next(createHttpError(404, "Employee not found"));
         }
@@ -1024,7 +1024,7 @@ const updateEmployeePropertyId = async (req: Request, res: Response, next: NextF
         const { propertyId } = updateEmployeePropertySchema.parse(req.body);
 
         // Find the current user (property owner)
-        const user = await User.findById(_id).select("-password");
+        const user = await User.findById(_id).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!user) {
             return next(createHttpError(404, "User not found"));
         }
@@ -1052,7 +1052,7 @@ const updateEmployeePropertyId = async (req: Request, res: Response, next: NextF
         }
 
         // Find the employee
-        const employee = await User.findById(employeeId).select("-password");
+        const employee = await User.findById(employeeId).select("-password -refreshToken -sessions -otp -otpExpiresAt");
         if (!employee) {
             return next(createHttpError(404, "Employee not found"));
         }
